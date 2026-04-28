@@ -547,9 +547,14 @@ function HomePage() {
           </div>
         </div>
         <button
-          className="no-drag flex size-9 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted hover:text-foreground"
+          className={cn(
+            "no-drag flex size-8 items-center justify-center rounded-md border text-muted-foreground transition",
+            showSync
+              ? "border-primary/30 bg-primary/10 text-primary"
+              : "border-transparent hover:border-border hover:bg-muted hover:text-foreground"
+          )}
           onClick={() => setShowSync((visible) => !visible)}
-          title="Settings"
+          title="Preferences"
           type="button"
         >
           <Settings className="size-4" />
@@ -568,33 +573,67 @@ function HomePage() {
         />
       ) : (
         <>
-          <section className="shrink-0 border-b bg-background px-3 py-2">
+          <section
+            className={cn(
+              "shrink-0 border-b px-4 py-4 transition-colors",
+              timer.idle
+                ? "border-amber-200 bg-amber-50"
+                : timer.running
+                  ? "border-[#261257] bg-[#211044] text-white"
+                  : timer.elapsedSeconds > 0
+                    ? "border-[#d9d0ff] bg-[#f5f2ff]"
+                    : "bg-background"
+            )}
+          >
             <div className="grid grid-cols-[1fr_auto] items-center gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs">
                   <span
                     className={cn(
                       "size-2 rounded-full",
                       timer.running
                         ? "bg-emerald-500"
-                        : "bg-muted-foreground/40"
+                        : timer.elapsedSeconds > 0
+                          ? "bg-primary"
+                          : "bg-muted-foreground/40"
                     )}
                   />
-                  <span className="text-muted-foreground text-xs">
-                    {timer.running ? "Tracking now" : "Ready to track"}
+                  <span
+                    className={cn(
+                      "font-medium",
+                      timer.running ? "text-white/80" : "text-muted-foreground"
+                    )}
+                  >
+                    {timer.idle
+                      ? "Idle detected"
+                      : timer.running
+                        ? "Tracking now"
+                        : timer.elapsedSeconds > 0
+                          ? "Paused"
+                          : "Ready"}
                   </span>
                 </div>
-                <p className="mt-1 font-mono font-semibold text-2xl tabular-nums">
+                <p className="mt-1 font-mono font-semibold text-4xl tracking-normal tabular-nums">
                   {formatDuration(timer.elapsedSeconds)}
                 </p>
-                <p className="truncate text-muted-foreground text-xs">
+                <p
+                  className={cn(
+                    "mt-1 truncate text-xs",
+                    timer.running ? "text-white/70" : "text-muted-foreground"
+                  )}
+                >
                   {selectedClient?.name ?? "Miru"} /{" "}
                   {selectedProject?.name ?? "Select project"} /{" "}
                   {selectedTask.name}
                 </p>
               </div>
               <Button
-                className="size-12 rounded-full"
+                className={cn(
+                  "size-14 rounded-full shadow-sm",
+                  timer.running
+                    ? "bg-white text-[#211044] hover:bg-white/90"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
                 onClick={toggleTimer}
                 size="icon"
                 title={timer.running ? "Pause timer" : "Start timer"}
@@ -607,9 +646,14 @@ function HomePage() {
                 )}
               </Button>
             </div>
-            <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+            <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
               <Button
-                className="h-8"
+                className={cn(
+                  "h-9",
+                  timer.running
+                    ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                    : ""
+                )}
                 disabled={timer.elapsedSeconds < 60 || !selectedProject}
                 onClick={saveTimerEntry}
                 variant="outline"
@@ -618,7 +662,12 @@ function HomePage() {
                 Stop and save
               </Button>
               <Button
-                className="h-8"
+                className={cn(
+                  "h-9",
+                  timer.running
+                    ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                    : ""
+                )}
                 disabled={timer.elapsedSeconds === 0}
                 onClick={resetTimer}
                 title="Reset timer"
@@ -635,7 +684,7 @@ function HomePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-muted-foreground text-xs">
-                      Time tracking
+                      Work details
                     </p>
                     <p className="truncate font-semibold text-base">
                       {selectedClient?.name ?? "Miru"} /{" "}
@@ -669,41 +718,6 @@ function HomePage() {
                     ))}
                   </Select>
                 </FieldLabel>
-                <div className="grid grid-cols-[1fr_7.25rem] gap-2">
-                  <FieldLabel label="Task">
-                    <Select
-                      onChange={(value) => {
-                        setTimer((current) => ({
-                          ...current,
-                          billable: false,
-                          taskId: value,
-                        }));
-                      }}
-                      value={timer.taskId}
-                    >
-                      {tasks.map((task) => (
-                        <option key={task.id} value={task.id}>
-                          {task.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </FieldLabel>
-                  <FieldLabel label="Idle prompt">
-                    <select
-                      className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                      onChange={(event) =>
-                        changeIdleThreshold(Number(event.target.value))
-                      }
-                      value={timer.idleThresholdSeconds}
-                    >
-                      <option value={60}>1 min</option>
-                      <option value={300}>5 min</option>
-                      <option value={600}>10 min</option>
-                      <option value={900}>15 min</option>
-                      <option value={1800}>30 min</option>
-                    </select>
-                  </FieldLabel>
-                </div>
                 <FieldLabel label="Notes">
                   <input
                     className="h-9 rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
@@ -731,9 +745,11 @@ function HomePage() {
               <SyncPanel
                 authForm={authForm}
                 authMode={authMode}
+                idleThresholdSeconds={timer.idleThresholdSeconds}
                 miruSession={miruSession}
                 onAuthFormChange={setAuthForm}
                 onAuthModeChange={setAuthMode}
+                onIdleThresholdChange={changeIdleThreshold}
                 onLogout={logoutMiru}
                 onQuit={() => window.nativeDialog.quitApp()}
                 onSubmitAuth={submitMiruAuth}
@@ -1060,9 +1076,11 @@ function IdlePrompt({
 function SyncPanel({
   authForm,
   authMode,
+  idleThresholdSeconds,
   miruSession,
   onAuthFormChange,
   onAuthModeChange,
+  onIdleThresholdChange,
   onLogout,
   onQuit,
   onSubmitAuth,
@@ -1071,9 +1089,11 @@ function SyncPanel({
 }: {
   authForm: AuthForm;
   authMode: AuthMode;
+  idleThresholdSeconds: number;
   miruSession: MiruSessionState | null;
   onAuthFormChange: (form: AuthForm) => void;
   onAuthModeChange: (mode: AuthMode) => void;
+  onIdleThresholdChange: (seconds: number) => void;
   onLogout: () => void;
   onQuit: () => void;
   onSubmitAuth: () => void;
@@ -1183,6 +1203,21 @@ function SyncPanel({
             Pull timer
           </Button>
         </div>
+        <FieldLabel label="Idle prompt">
+          <select
+            className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            onChange={(event) =>
+              onIdleThresholdChange(Number(event.target.value))
+            }
+            value={idleThresholdSeconds}
+          >
+            <option value={60}>After 1 min</option>
+            <option value={300}>After 5 min</option>
+            <option value={600}>After 10 min</option>
+            <option value={900}>After 15 min</option>
+            <option value={1800}>After 30 min</option>
+          </select>
+        </FieldLabel>
         <Button onClick={onQuit} variant="ghost">
           Quit app
         </Button>

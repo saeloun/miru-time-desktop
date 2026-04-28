@@ -9,6 +9,7 @@ import {
   type MenuItemConstructorOptions,
   nativeImage,
   powerMonitor,
+  screen,
   Tray,
 } from "electron";
 import { ipcMain } from "electron/main";
@@ -128,20 +129,23 @@ if (process.env.MIRU_USER_DATA_DIR) {
 
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.show();
-    mainWindow.focus();
     return mainWindow;
   }
 
   const basePath = getBasePath();
   const preload = path.join(basePath, "preload.js");
   mainWindow = new BrowserWindow({
+    backgroundColor: "#f7f8fb",
     frame: false,
-    height: 740,
+    fullscreenable: false,
+    height: 640,
+    maximizable: false,
     minHeight: 560,
-    minWidth: 390,
+    minWidth: 380,
+    resizable: false,
+    show: false,
     title: "Miru Time Tracking",
-    width: 430,
+    width: 392,
     webPreferences: {
       devTools: inDevelopment,
       contextIsolation: true,
@@ -155,6 +159,13 @@ function createWindow() {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+  mainWindow.once("ready-to-show", () => {
+    if (!(mainWindow && !mainWindow.isDestroyed())) {
+      return;
+    }
+
+    showMainWindow(mainWindow);
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -287,24 +298,67 @@ function createTray() {
 
   tray = new Tray(createTrayImage(getTimerSnapshot()));
   tray.setToolTip("Miru Time Tracking");
-  tray.on("click", () => {
-    openMainWindow();
-  });
+  tray.on("click", toggleMainWindow);
+  tray.on("right-click", showTrayMenu);
 
   ensureTrayInterval();
   updateTray();
   startIdleMonitor();
 }
 
-function openMainWindow() {
+function toggleMainWindow() {
   const window = createWindow();
 
+  if (window.isVisible() && window.isFocused()) {
+    window.hide();
+    return;
+  }
+
+  showMainWindow(window);
+}
+
+function openMainWindow() {
+  const window = createWindow();
+  showMainWindow(window);
+}
+
+function showMainWindow(window: BrowserWindow) {
   if (window.isMinimized()) {
     window.restore();
   }
 
+  positionMainWindowNearTray(window);
   window.show();
   window.focus();
+}
+
+function positionMainWindowNearTray(window: BrowserWindow) {
+  if (!tray) {
+    window.center();
+    return;
+  }
+
+  const trayBounds = tray.getBounds();
+  const windowBounds = window.getBounds();
+  const display = screen.getDisplayNearestPoint({
+    x: Math.round(trayBounds.x + trayBounds.width / 2),
+    y: Math.round(trayBounds.y + trayBounds.height / 2),
+  });
+  const workArea = display.workArea;
+  const centeredX = Math.round(
+    trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2
+  );
+  const x = Math.min(
+    Math.max(centeredX, workArea.x + 8),
+    workArea.x + workArea.width - windowBounds.width - 8
+  );
+  const belowTrayY = Math.round(trayBounds.y + trayBounds.height + 6);
+  const y = Math.min(
+    Math.max(belowTrayY, workArea.y + 8),
+    workArea.y + workArea.height - windowBounds.height - 8
+  );
+
+  window.setPosition(x, y, false);
 }
 
 function timerStorePath() {
@@ -1175,13 +1229,7 @@ function getTrayDetailLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
   return "Timer not started";
 }
 
-function updateTray(options: { persist?: boolean } = {}) {
-  if (!tray) {
-    return;
-  }
-
-  const snapshot = getTimerSnapshot();
-  const elapsed = snapshot.formatted;
+function buildTrayMenu(snapshot: ReturnType<typeof getTimerSnapshot>) {
   const statusLabel = getTrayStatusLabel(snapshot);
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
@@ -1249,8 +1297,11 @@ function updateTray(options: { persist?: boolean } = {}) {
     },
     { type: "separator" },
     {
-      click: openMainWindow,
-      label: "Open Miru Time Tracking",
+      click: toggleMainWindow,
+      label:
+        mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()
+          ? "Hide Timer Window"
+          : "Show Timer Window",
     },
     {
       click: () => app.quit(),
@@ -1258,10 +1309,28 @@ function updateTray(options: { persist?: boolean } = {}) {
     },
   ];
 
+  return Menu.buildFromTemplate(menuTemplate);
+}
+
+function showTrayMenu() {
+  if (!tray) {
+    return;
+  }
+
+  tray.popUpContextMenu(buildTrayMenu(getTimerSnapshot()));
+}
+
+function updateTray(options: { persist?: boolean } = {}) {
+  if (!tray) {
+    return;
+  }
+
+  const snapshot = getTimerSnapshot();
+  const statusLabel = getTrayStatusLabel(snapshot);
+
   tray.setImage(createTrayImage(snapshot));
   tray.setTitle(formatTrayTitle(snapshot));
   tray.setToolTip(`Miru Time Tracking - ${statusLabel}`);
-  tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
   publishTimerState(snapshot);
 
   if (snapshot.running || options.persist !== false) {
