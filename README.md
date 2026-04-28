@@ -1,30 +1,17 @@
 # Miru Time Desktop
 
-Local-first macOS desktop app for teams that bill by the hour.
+Local-first macOS time tracker for Miru teams. The app is built from [`LuanRoger/electron-shadcn`](https://github.com/LuanRoger/electron-shadcn) with Electron Forge, Vite, React, TypeScript, Tailwind, TanStack Router, Vitest, and Playwright.
 
-Built from [`LuanRoger/electron-shadcn`](https://github.com/LuanRoger/electron-shadcn) with Electron Forge, Vite, React, TypeScript, Tailwind, shadcn/ui-style primitives, TanStack Router, Vitest, and Playwright.
+## What Ships
 
-## Product Surface
-
-- Shared desktop timer with project, client, task, notes, billable flag, and local persistence.
-- macOS menu bar timer with quick Start/Pause, Reset, Open, and Quit actions.
-- Always-visible in-app timer control in the top bar.
-- Week-first time tracking screen with daily totals, unsubmitted hours, and entry rows.
-- Day, week, and month timesheet surface.
-- Clients, projects, budget burn, hourly rates, and project health.
-- Team capacity, submitted hours, and approval workflow.
-- Reports for billable time, project budgets, utilization, and profitability.
-- Invoices generated from approved time plus expense tracking.
-- Workspace, billing, notification, import, integration, and security settings.
-
-## Design Direction
-
-The UI follows the local Miru web and website guidance:
-
-- Operational Calm: dense, scannable, finance-safe.
-- Geist typography with tabular numbers for hours and money.
-- Tokenized neutral surfaces with Miru violet primary actions.
-- Compact tables, clear status labels, visible focus states, and role-aware navigation.
+- Native macOS menu bar timer with elapsed time, Start/Pause, Reset, idle recovery, and Quit actions.
+- In-app timer synchronized with the desktop timer through Electron IPC.
+- Harvest-style time entry screen for adding, editing, deleting, and resuming entries.
+- Local storage for entries and timer context, plus persisted desktop timer state under Electron `userData`.
+- Idle recovery actions: remove idle time and continue, remove idle time and start new, or ignore and continue.
+- Native Electron confirmation dialog for destructive time-entry deletion.
+- Miru API bridge for login, signup, logout, workspace switching, current timer sync, and saving timer entries.
+- Miru-branded macOS app icon and in-app logo.
 
 ## Development
 
@@ -33,10 +20,41 @@ npm install
 npm run start
 ```
 
-## Package For macOS
+## Verification
 
 ```bash
+npm run test
+npm run test:e2e
 npm run package
 ```
 
-The packaged app is created under `out/Miru Time Desktop-darwin-*`.
+The Playwright Electron specs cover the important desktop flows: shared timer sync, local time entry creation, resume into the menu bar timer, idle recovery actions, and timer persistence across app relaunch.
+
+## Package And Install Locally
+
+```bash
+npm run package
+open "out/Miru Time Desktop-darwin-arm64/Miru Time Desktop.app"
+```
+
+For a distributable artifact:
+
+```bash
+npm run make
+```
+
+The macOS ZIP is produced under `out/make/zip/darwin/arm64/`.
+
+## Release Prep
+
+- `npm run test`
+- `npm run test:e2e`
+- `npm run make`
+- Verify the packaged app opens and shows the Miru icon in Finder/Dock.
+- Create a GitHub release from the generated ZIP or run `npm run publish` when ready to create a draft release.
+
+## Docs
+
+- [Sync strategy](docs/sync-strategy.md)
+- [Integration specs](docs/integration-specs.md)
+- [Release checklist](docs/release.md)

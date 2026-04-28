@@ -22,11 +22,55 @@ interface MiruTimerState {
   running: boolean;
 }
 
+interface MiruSessionState {
+  baseUrl: string;
+  company: Record<string, unknown> | null;
+  companyRole: string;
+  currentWorkspaceId: number | string | null;
+  lastSyncAt: string;
+  signedIn: boolean;
+  syncError: string;
+  syncStatus: "error" | "local" | "offline" | "synced" | "syncing";
+  user: Record<string, unknown> | null;
+  workspaces: Array<{ id: number | string; name: string; logo?: string }>;
+}
+
 interface Window {
+  miruApi: {
+    getSession: () => Promise<MiruSessionState>;
+    login: (payload: {
+      baseUrl?: string;
+      email: string;
+      password: string;
+    }) => Promise<MiruSessionState>;
+    logout: () => Promise<MiruSessionState>;
+    saveTimerEntry: (payload: {
+      projectId?: number | string;
+      userId?: number | string;
+    }) => Promise<unknown>;
+    signup: (payload: {
+      baseUrl?: string;
+      email: string;
+      firstName?: string;
+      lastName?: string;
+      password: string;
+    }) => Promise<MiruSessionState>;
+    switchWorkspace: (
+      workspaceId: number | string
+    ) => Promise<MiruSessionState>;
+    syncCurrentTimer: (
+      action?: "pull" | "push"
+    ) => Promise<{ session: MiruSessionState; timer: MiruTimerState }>;
+  };
+  nativeDialog: {
+    confirmDeleteTimeEntry: () => Promise<boolean>;
+    quitApp: () => Promise<void>;
+  };
   miruTimer: {
     applyIdleAction: (
       action: "remove-continue" | "remove-start-new" | "ignore-continue"
     ) => Promise<MiruTimerState>;
+    forceIdleForTesting?: (durationMs: number) => Promise<MiruTimerState>;
     getState: () => Promise<MiruTimerState>;
     onStateChange: (callback: (state: MiruTimerState) => void) => () => void;
     pause: () => Promise<MiruTimerState>;

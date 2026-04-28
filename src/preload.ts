@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "./constants";
 
 const TIMER_CHANNELS = {
+  forceIdleForTesting: "miru-timer:force-idle-for-testing",
   getState: "miru-timer:get-state",
   idleAction: "miru-timer:idle-action",
   pause: "miru-timer:pause",
@@ -13,7 +14,24 @@ const TIMER_CHANNELS = {
   toggle: "miru-timer:toggle",
 };
 
+const MIRU_API_CHANNELS = {
+  getSession: "miru-api:get-session",
+  login: "miru-api:login",
+  logout: "miru-api:logout",
+  saveTimerEntry: "miru-api:save-timer-entry",
+  signup: "miru-api:signup",
+  syncCurrentTimer: "miru-api:sync-current-timer",
+  switchWorkspace: "miru-api:switch-workspace",
+};
+
+const NATIVE_UI_CHANNELS = {
+  confirmDeleteTimeEntry: "native-ui:confirm-delete-time-entry",
+  quitApp: "native-ui:quit-app",
+};
+
 contextBridge.exposeInMainWorld("miruTimer", {
+  forceIdleForTesting: (durationMs: number) =>
+    ipcRenderer.invoke(TIMER_CHANNELS.forceIdleForTesting, durationMs),
   getState: () => ipcRenderer.invoke(TIMER_CHANNELS.getState),
   onStateChange: (callback: (state: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: unknown) => {
@@ -36,6 +54,26 @@ contextBridge.exposeInMainWorld("miruTimer", {
     ipcRenderer.invoke(TIMER_CHANNELS.setIdleThreshold, seconds),
   start: () => ipcRenderer.invoke(TIMER_CHANNELS.start),
   toggle: () => ipcRenderer.invoke(TIMER_CHANNELS.toggle),
+});
+
+contextBridge.exposeInMainWorld("miruApi", {
+  getSession: () => ipcRenderer.invoke(MIRU_API_CHANNELS.getSession),
+  login: (payload: unknown) => ipcRenderer.invoke(MIRU_API_CHANNELS.login, payload),
+  logout: () => ipcRenderer.invoke(MIRU_API_CHANNELS.logout),
+  saveTimerEntry: (payload: unknown) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.saveTimerEntry, payload),
+  signup: (payload: unknown) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.signup, payload),
+  switchWorkspace: (workspaceId: number | string) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.switchWorkspace, workspaceId),
+  syncCurrentTimer: (action?: "pull" | "push") =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.syncCurrentTimer, action),
+});
+
+contextBridge.exposeInMainWorld("nativeDialog", {
+  confirmDeleteTimeEntry: () =>
+    ipcRenderer.invoke(NATIVE_UI_CHANNELS.confirmDeleteTimeEntry),
+  quitApp: () => ipcRenderer.invoke(NATIVE_UI_CHANNELS.quitApp),
 });
 
 window.addEventListener("message", (event) => {
