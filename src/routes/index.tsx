@@ -346,7 +346,14 @@ function HomePage() {
 
   const selectedProject = projectById(timer.projectId) ?? projects[0];
   const selectedClient = clientById(selectedProject.clientId) ?? clients[0];
+  const selectedTask = taskById(timer.taskId) ?? tasks[0];
   const elapsedHours = timer.elapsedSeconds / 3600;
+  const selectedDayHours = entries
+    .filter((entry) => entry.date === selectedDate)
+    .reduce((total, entry) => total + entry.hours, 0);
+  const selectedWeekHours = entries
+    .filter((entry) => weekDates(selectedDate).includes(entry.date))
+    .reduce((total, entry) => total + entry.hours, 0);
 
   function toggleTimer() {
     window.miruTimer.toggle().then(syncDesktopTimer).catch((error) => {
@@ -576,29 +583,31 @@ function HomePage() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[12.5rem_1fr] overflow-hidden bg-background text-foreground">
+    <div className="grid h-full min-h-0 grid-cols-[14.5rem_1fr] overflow-hidden bg-background text-foreground">
       <aside className="flex min-h-0 flex-col border-r bg-sidebar">
-        <div className="border-b px-4 py-3">
-          <div className="flex items-center gap-2">
+        <div className="border-b px-4 py-4">
+          <div className="flex items-center gap-3">
             <img
               alt="Miru"
-              className="size-8 rounded-md shadow-sm"
+              className="size-10 rounded-lg shadow-sm"
               src={miruLogoUrl}
             />
-            <div>
-              <h1 className="font-semibold text-sm">Miru Time Tracking</h1>
-              <p className="text-muted-foreground text-xs">Employee tracker</p>
+            <div className="min-w-0">
+              <h1 className="truncate font-semibold text-sm">Miru Time Tracking</h1>
+              <p className="truncate text-muted-foreground text-xs">
+                Employee tracker
+              </p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="flex-1 space-y-1.5 p-3">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 className={cn(
-                  "flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-sm transition",
+                  "flex h-10 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm transition",
                   activeTab === tab.id
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -615,7 +624,7 @@ function HomePage() {
         </nav>
 
         <div className="border-t p-3">
-          <div className="rounded-md border bg-background p-3">
+          <div className="rounded-md border bg-background p-3 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-xs">Workspace</span>
               <ShieldCheck className="size-4 text-primary" />
@@ -629,10 +638,14 @@ function HomePage() {
       </aside>
 
       <section className="flex min-h-0 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b bg-background/95 px-5 py-3">
+        <header className="flex items-center justify-between border-b bg-background/95 px-6 py-4">
           <div>
-            <p className="text-muted-foreground text-xs uppercase">
-              {clientFilter === "all" ? "All clients" : clientById(clientFilter)?.name}
+            <p className="font-medium text-muted-foreground text-xs uppercase">
+              {activeTab === "time"
+                ? dayTitle(selectedDate)
+                : clientFilter === "all"
+                  ? "All clients"
+                  : clientById(clientFilter)?.name}
             </p>
             <h2 className="font-semibold text-xl">{tabTitle(activeTab)}</h2>
           </div>
@@ -690,148 +703,169 @@ function HomePage() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-auto bg-muted/30 p-4">
+        <main className="min-h-0 flex-1 overflow-auto bg-[#f7f8fb] p-5">
           <div className="grid gap-4">
             {activeTab === "time" && (
               <>
-                <section className="rounded-lg border bg-background p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-muted-foreground text-xs">
-                        {timer.running ? "Tracking now" : "Ready"}
-                      </p>
-                      <p className="font-mono font-semibold text-3xl tabular-nums">
-                        {formatDuration(timer.elapsedSeconds)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        className={cn(
-                          "h-10 min-w-28",
-                          timer.running
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "bg-primary text-primary-foreground"
-                        )}
-                        onClick={toggleTimer}
-                      >
-                        {timer.running ? <Pause /> : <Play />}
-                        {timer.running ? "Pause" : "Start"}
-                      </Button>
-                      <Button
-                        disabled={timer.elapsedSeconds < 60}
-                        onClick={saveTimerEntry}
-                        variant="outline"
-                      >
-                        <Square />
-                        Stop
-                      </Button>
-                      <Button
-                        disabled={timer.elapsedSeconds === 0}
-                        onClick={resetTimer}
-                        title="Reset timer"
-                        variant="ghost"
-                      >
-                        <RotateCcw />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] gap-2">
-                    <Select
-                      onChange={(value) => {
-                        setTimer((current) => ({
-                          ...current,
-                          billable: false,
-                          projectId: value,
-                        }));
-                      }}
-                      value={timer.projectId}
-                    >
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {clientById(project.clientId)?.name} / {project.name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Select
-                      onChange={(value) => {
-                        setTimer((current) => ({
-                          ...current,
-                          billable: false,
-                          taskId: value,
-                        }));
-                      }}
-                      value={timer.taskId}
-                    >
-                      {tasks.map((task) => (
-                        <option key={task.id} value={task.id}>
-                          {task.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <input
-                    className="mt-2 h-9 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/30"
-                    onChange={(event) =>
-                      setTimer((current) => ({
-                        ...current,
-                        notes: event.target.value,
-                      }))
-                    }
-                    placeholder="What are you working on?"
-                    value={timer.notes}
-                  />
-                  <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
-                    <div className="text-muted-foreground text-sm">
-                      {selectedClient.name}
-                    </div>
-                    <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-xs">
-                      Idle
-                      <select
-                        className="bg-transparent outline-none"
-                        onChange={(event) =>
-                          changeIdleThreshold(Number(event.target.value))
-                        }
-                        value={timer.idleThresholdSeconds}
-                      >
-                        <option value={60}>1m</option>
-                        <option value={300}>5m</option>
-                        <option value={600}>10m</option>
-                        <option value={900}>15m</option>
-                        <option value={1800}>30m</option>
-                      </select>
-                    </label>
-                  </div>
-                  {timer.idle && (
-                    <div className="mt-3 rounded-md border border-primary/30 bg-primary/10 p-3 text-primary">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm">
-                          Idle time detected: {formatLongDuration(timer.idle.durationMs)}
+                <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
+                  <div className="grid gap-4 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="mb-2 flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "size-2 rounded-full",
+                              timer.running ? "bg-emerald-500" : "bg-muted-foreground/40"
+                            )}
+                          />
+                          <p className="font-medium text-muted-foreground text-xs uppercase">
+                            {timer.running ? "Tracking now" : "Ready to track"}
+                          </p>
+                        </div>
+                        <p className="font-mono font-semibold text-5xl leading-none tabular-nums">
+                          {formatDuration(timer.elapsedSeconds)}
                         </p>
-                        <div className="flex shrink-0 gap-2">
+                        <p className="mt-2 text-muted-foreground text-sm">
+                          {selectedClient.name} / {selectedProject.name} / {selectedTask.name}
+                        </p>
+                      </div>
+                      <div className="grid min-w-[17rem] gap-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <SummaryTile label="Today" value={`${formatHours(selectedDayHours)}h`} />
+                          <SummaryTile label="Week" value={`${formatHours(selectedWeekHours)}h`} />
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
                           <Button
-                            onClick={() => applyIdleAction("remove-continue")}
-                            size="sm"
-                            variant="outline"
+                            className={cn(
+                              "h-11 min-w-32 text-sm",
+                              timer.running
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-primary text-primary-foreground"
+                            )}
+                            onClick={toggleTimer}
                           >
-                            Remove + continue
+                            {timer.running ? <Pause /> : <Play />}
+                            {timer.running ? "Pause" : "Start"}
                           </Button>
                           <Button
-                            onClick={() => applyIdleAction("remove-start-new")}
-                            size="sm"
+                            className="h-11 px-4"
+                            disabled={timer.elapsedSeconds < 60}
+                            onClick={saveTimerEntry}
                             variant="outline"
                           >
-                            Remove + new
+                            <Square />
+                            Stop
                           </Button>
                           <Button
-                            onClick={() => applyIdleAction("ignore-continue")}
-                            size="sm"
+                            className="h-11"
+                            disabled={timer.elapsedSeconds === 0}
+                            onClick={resetTimer}
+                            title="Reset timer"
+                            variant="ghost"
                           >
-                            Ignore
+                            <RotateCcw />
                           </Button>
                         </div>
                       </div>
                     </div>
-                  )}
+
+                    <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)_8.5rem] gap-3">
+                      <FieldLabel label="Project">
+                        <Select
+                          onChange={(value) => {
+                            setTimer((current) => ({
+                              ...current,
+                              billable: false,
+                              projectId: value,
+                            }));
+                          }}
+                          value={timer.projectId}
+                        >
+                          {projects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {clientById(project.clientId)?.name} / {project.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </FieldLabel>
+                      <FieldLabel label="Task">
+                        <Select
+                          onChange={(value) => {
+                            setTimer((current) => ({
+                              ...current,
+                              billable: false,
+                              taskId: value,
+                            }));
+                          }}
+                          value={timer.taskId}
+                        >
+                          {tasks.map((task) => (
+                            <option key={task.id} value={task.id}>
+                              {task.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </FieldLabel>
+                      <FieldLabel label="Idle prompt">
+                        <select
+                          className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/30"
+                          onChange={(event) =>
+                            changeIdleThreshold(Number(event.target.value))
+                          }
+                          value={timer.idleThresholdSeconds}
+                        >
+                          <option value={60}>1 min</option>
+                          <option value={300}>5 min</option>
+                          <option value={600}>10 min</option>
+                          <option value={900}>15 min</option>
+                          <option value={1800}>30 min</option>
+                        </select>
+                      </FieldLabel>
+                    </div>
+
+                    <input
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/30"
+                      onChange={(event) =>
+                        setTimer((current) => ({
+                          ...current,
+                          notes: event.target.value,
+                        }))
+                      }
+                      placeholder="What are you working on?"
+                      value={timer.notes}
+                    />
+                    {timer.idle && (
+                      <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-primary">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm">
+                            Idle time detected: {formatLongDuration(timer.idle.durationMs)}
+                          </p>
+                          <div className="flex shrink-0 gap-2">
+                            <Button
+                              onClick={() => applyIdleAction("remove-continue")}
+                              size="sm"
+                              variant="outline"
+                            >
+                              Remove + continue
+                            </Button>
+                            <Button
+                              onClick={() => applyIdleAction("remove-start-new")}
+                              size="sm"
+                              variant="outline"
+                            >
+                              Remove + new
+                            </Button>
+                            <Button
+                              onClick={() => applyIdleAction("ignore-continue")}
+                              size="sm"
+                            >
+                              Ignore
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </section>
                 <TimePanel
                   entries={filteredEntries}
@@ -902,30 +936,35 @@ function TimePanel({
 
   return (
     <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
-      <div className="flex h-14 items-center justify-between border-b bg-primary px-4 text-primary-foreground">
+      <div className="flex h-14 items-center justify-between border-b bg-background px-5">
         <div className="flex items-center gap-2">
-          <img alt="Miru" className="size-7 rounded-md" src={miruLogoUrl} />
-          <span className="font-medium text-sm">Timesheet</span>
+          <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <CalendarDays className="size-4" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">Timesheet</p>
+            <p className="text-muted-foreground text-xs">Daily entries</p>
+          </div>
         </div>
         <div className="font-semibold text-lg">{dayTitle(selectedDate)}</div>
         <div className="flex items-center gap-2">
           <button
-            className="flex size-8 items-center justify-center rounded-md hover:bg-white/15"
+            className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             title="Open calendar"
             type="button"
           >
-            <CalendarDays className="size-5" />
+            <CalendarDays className="size-4" />
           </button>
           <button
-            className="flex size-8 items-center justify-center rounded-md hover:bg-white/15"
+            className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             title="Timesheet details"
             type="button"
           >
-            <Info className="size-5" />
+            <Info className="size-4" />
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-[2rem_repeat(7,1fr)_2rem] items-center border-b bg-muted/50 px-2 py-3">
+      <div className="grid grid-cols-[2rem_repeat(7,1fr)_2rem] items-center border-b bg-muted/40 px-2 py-3">
         <button className="text-muted-foreground hover:text-foreground" type="button">
           ‹
         </button>
@@ -944,7 +983,7 @@ function TimePanel({
             >
               <span
                 className={cn(
-                  "flex size-10 items-center justify-center rounded-full font-semibold text-lg transition",
+                  "flex size-9 items-center justify-center rounded-full font-semibold text-base transition",
                   selected
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "hover:bg-background hover:text-foreground"
@@ -989,20 +1028,23 @@ function TimePanel({
           <div className="divide-y">
             {selectedEntries.map((entry) => (
               <div
-                className="group grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-4 transition hover:bg-primary/5"
+                className="group grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-4 transition hover:bg-muted/40"
                 key={entry.id}
               >
-                <div>
-                  <p className="font-semibold text-muted-foreground text-sm">
-                    {clientById(entry.clientId)?.name}
-                  </p>
-                  <p className="font-medium text-lg">{projectById(entry.projectId)?.name}</p>
-                  <p className="text-muted-foreground">{taskById(entry.taskId)?.name}</p>
-                  {entry.notes && (
-                    <p className="mt-1 text-muted-foreground text-sm">{entry.notes}</p>
-                  )}
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="mt-1 size-2 rounded-full bg-emerald-500" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-muted-foreground text-xs">
+                      {clientById(entry.clientId)?.name}
+                    </p>
+                    <p className="truncate font-semibold">{projectById(entry.projectId)?.name}</p>
+                    <p className="text-muted-foreground text-sm">{taskById(entry.taskId)?.name}</p>
+                    {entry.notes && (
+                      <p className="mt-1 truncate text-muted-foreground text-sm">{entry.notes}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="font-mono text-3xl tabular-nums">
+                <div className="font-mono text-2xl tabular-nums">
                   {formatEntryDuration(entry.hours)}
                 </div>
                 <div className="flex items-center gap-2">
@@ -1036,7 +1078,7 @@ function TimePanel({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center border-t bg-muted/40 px-5 py-3">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center border-t bg-muted/30 px-5 py-3">
         <div className="flex items-center gap-6">
           <button
             className="text-muted-foreground hover:text-primary"
@@ -1044,10 +1086,10 @@ function TimePanel({
             title="Add entry"
             type="button"
           >
-            <Plus className="size-7" />
+            <Plus className="size-5" />
           </button>
           <button className="text-muted-foreground hover:text-primary" title="Favorites" type="button">
-            <Star className="size-7" />
+            <Star className="size-5" />
           </button>
         </div>
         <div className="font-mono text-muted-foreground text-sm tabular-nums">
@@ -1055,7 +1097,7 @@ function TimePanel({
         </div>
         <div className="flex justify-end">
           <button className="text-muted-foreground hover:text-primary" title="Settings" type="button">
-            <Settings className="size-7" />
+            <Settings className="size-5" />
           </button>
         </div>
       </div>
@@ -1420,6 +1462,15 @@ function FieldLabel({
       <span className="font-medium text-muted-foreground text-xs">{label}</span>
       {children}
     </label>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-muted/30 px-3 py-2">
+      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className="font-mono font-semibold text-sm tabular-nums">{value}</p>
+    </div>
   );
 }
 

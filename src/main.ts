@@ -133,9 +133,9 @@ function createWindow() {
   const preload = path.join(basePath, "preload.js");
   mainWindow = new BrowserWindow({
     minHeight: 680,
-    minWidth: 760,
+    minWidth: 900,
     title: "Miru Time Tracking",
-    width: 920,
+    width: 1080,
     height: 820,
     webPreferences: {
       devTools: inDevelopment,
