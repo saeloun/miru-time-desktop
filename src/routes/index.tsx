@@ -531,7 +531,7 @@ function HomePage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#f7f8fb] text-foreground">
+    <div className="flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
       <header className="draglayer grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <img

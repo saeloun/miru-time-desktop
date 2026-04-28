@@ -123,10 +123,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground overflow-hidden font-sans antialiased;
+    @apply bg-transparent text-foreground overflow-hidden font-sans antialiased;
   }
   html {
-    @apply font-sans;
+    @apply bg-transparent font-sans;
+  }
+  #app {
+    @apply bg-transparent;
   }
 
   .draglayer {
