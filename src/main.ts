@@ -1091,29 +1091,39 @@ function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
   const state = getTrayVisualState(snapshot);
   const frame = Math.floor(Date.now() / 250) % 8;
   const palette = getTrayPalette(state);
-  const rotation = frame * 45;
-  const pulse = 0.78 + (frame % 4) * 0.05;
-  const glyph = getTrayGlyph(state);
-  const halo =
+  const label = formatTraySvgLabel(snapshot);
+  const width = Math.max(
+    78,
+    45 + label.length * 7 + (snapshot.elapsedMs > 0 ? 13 : 0)
+  );
+  const sweepX = 24 + ((frame * 11) % Math.max(24, width - 34));
+  const pulse = 0.2 + (frame % 4) * 0.07;
+  const primaryGlyph = getTrayPrimaryGlyph(state);
+  const stopGlyph = snapshot.elapsedMs > 0 ? getTrayStopGlyph(width) : "";
+  const shimmer =
     state === "running"
-      ? `<circle cx="11" cy="11" r="${5.2 + (frame % 4) * 0.35}" fill="${palette.accent}" opacity="0.18"/>`
-      : state === "idle"
-        ? `<circle cx="11" cy="11" r="${6.5 + (frame % 2) * 0.65}" fill="${palette.accent}" opacity="0.24"/>`
+      ? `<rect x="${sweepX}" y="2" width="15" height="18" rx="9" fill="#ffffff" opacity="${pulse.toFixed(2)}"/>`
+      : "";
+  const progress =
+    state === "running"
+      ? `<rect x="25" y="18" width="${Math.max(10, ((frame + 1) / 8) * (width - 37))}" height="1.4" rx="0.7" fill="${palette.accent}" opacity="0.92"/>`
+      : state === "paused"
+        ? `<rect x="25" y="18" width="${width - 38}" height="1.4" rx="0.7" fill="${palette.accent}" opacity="0.42"/>`
         : "";
   const activity =
     state === "running"
-      ? `<circle cx="11" cy="11" r="8.35" fill="none" stroke="${palette.accent}" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="11 42" transform="rotate(${rotation} 11 11)" opacity="${pulse.toFixed(2)}"/>`
+      ? `<circle cx="12" cy="11" r="8" fill="none" stroke="${palette.accent}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="9 42" transform="rotate(${frame * 45} 12 11)"/>`
       : state === "idle"
-        ? `<circle cx="11" cy="11" r="8.2" fill="none" stroke="${palette.accent}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="4 6" transform="rotate(${rotation * 1.5} 11 11)" opacity="${0.7 + (frame % 2) * 0.25}"/>`
+        ? `<circle cx="12" cy="11" r="8" fill="none" stroke="${palette.accent}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="3 5" opacity="${0.62 + (frame % 2) * 0.25}"/>`
         : state === "paused"
-          ? `<circle cx="11" cy="11" r="8.1" fill="none" stroke="${palette.accent}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1.8 4.6" transform="rotate(${rotation} 11 11)" opacity="0.76"/>`
+          ? `<circle cx="12" cy="11" r="8" fill="none" stroke="${palette.accent}" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2 4" opacity="0.74"/>`
           : state === "ready"
-            ? `<circle cx="11" cy="11" r="8.1" fill="none" stroke="${palette.accent}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="5 46" transform="rotate(${rotation} 11 11)" opacity="0.62"/>`
+            ? `<circle cx="12" cy="11" r="8" fill="none" stroke="${palette.accent}" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="6 42" opacity="0.58"/>`
             : "";
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="22" viewBox="0 0 ${width} 22">
       <defs>
-        <linearGradient id="surface" x1="4" x2="18" y1="3" y2="19" gradientUnits="userSpaceOnUse">
+        <linearGradient id="surface" x1="0" x2="${width}" y1="2" y2="20" gradientUnits="userSpaceOnUse">
           <stop stop-color="${palette.highlight}"/>
           <stop offset="1" stop-color="${palette.background}"/>
         </linearGradient>
@@ -1121,11 +1131,15 @@ function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
           <feDropShadow dx="0" dy="0.7" stdDeviation="0.55" flood-color="#000000" flood-opacity="0.24"/>
         </filter>
       </defs>
-      <circle cx="11" cy="11" r="9.4" fill="url(#surface)" filter="url(#soft-shadow)"/>
-      <circle cx="11" cy="11" r="9" fill="none" stroke="${palette.border}" stroke-width="1"/>
-      ${halo}
+      <rect x="1" y="2" width="${width - 2}" height="18" rx="9" fill="url(#surface)" filter="url(#soft-shadow)"/>
+      <rect x="1.5" y="2.5" width="${width - 3}" height="17" rx="8.5" fill="none" stroke="${palette.border}" stroke-width="1"/>
+      ${shimmer}
+      <circle cx="12" cy="11" r="8.8" fill="${palette.button}" opacity="0.98"/>
       ${activity}
-      <g fill="${palette.glyph}">${glyph}</g>
+      <g fill="${palette.glyph}">${primaryGlyph}</g>
+      <text x="27" y="14.6" fill="${palette.text}" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.6" font-weight="700" letter-spacing="0">${label}</text>
+      ${progress}
+      ${stopGlyph}
     </svg>
   `;
   const image = nativeImage.createFromDataURL(
@@ -1158,56 +1172,71 @@ function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
       accent: "#facc15",
       background: "#9a3412",
       border: "#f59e0b",
+      button: "#f59e0b",
       glyph: "#ffffff",
       highlight: "#f97316",
+      text: "#ffffff",
     },
     paused: {
       accent: "#c4b5fd",
       background: "#4c4563",
       border: "#8b7fc0",
+      button: "#6d5dfc",
       glyph: "#ffffff",
       highlight: "#756c92",
+      text: "#ffffff",
     },
     ready: {
       accent: "#c4c7cf",
       background: "#2f3138",
       border: "#6b7280",
+      button: "#52525b",
       glyph: "#ffffff",
       highlight: "#4b5563",
+      text: "#ffffff",
     },
     running: {
       accent: "#c4b5fd",
       background: "#4c1d95",
       border: "#a78bfa",
-      glyph: "#ffffff",
+      button: "#ffffff",
+      glyph: "#4c1d95",
       highlight: "#7c3aed",
+      text: "#ffffff",
     },
   } as const;
 
   return palettes[state];
 }
 
-function getTrayGlyph(state: ReturnType<typeof getTrayVisualState>) {
+function getTrayPrimaryGlyph(state: ReturnType<typeof getTrayVisualState>) {
   if (state === "running") {
     return `
-      <rect x="8" y="6.7" width="2.2" height="8.6" rx="1"/>
-      <rect x="11.8" y="6.7" width="2.2" height="8.6" rx="1"/>
+      <rect x="9" y="7" width="2" height="8" rx="0.9"/>
+      <rect x="13" y="7" width="2" height="8" rx="0.9"/>
     `;
   }
 
   if (state === "idle") {
     return `
-      <rect x="9.8" y="5.8" width="2.4" height="8" rx="1.2"/>
-      <circle cx="11" cy="16.2" r="1.35"/>
+      <rect x="10.8" y="6.1" width="2.4" height="7.4" rx="1.2"/>
+      <circle cx="12" cy="16" r="1.25"/>
     `;
   }
 
-  return `<path d="M8.2 6.4v9.2l7.4-4.6z"/>`;
+  return `<path d="M9.2 6.7v8.6l7-4.3z"/>`;
 }
 
-function formatTrayTitle(snapshot: ReturnType<typeof getTimerSnapshot>) {
+function getTrayStopGlyph(width: number) {
+  return `
+    <rect x="${width - 17}" y="6" width="11" height="11" rx="5.5" fill="#000000" opacity="0.18"/>
+    <rect x="${width - 13.5}" y="9.2" width="4.6" height="4.6" rx="1" fill="#ffffff" opacity="0.9"/>
+  `;
+}
+
+function formatTraySvgLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
   if (snapshot.idle) {
-    return `Idle ${snapshot.formatted}`;
+    return `IDLE ${snapshot.formatted}`;
   }
 
   if (snapshot.running || snapshot.elapsedMs > 0) {
@@ -1349,7 +1378,7 @@ function updateTray(options: { persist?: boolean } = {}) {
   const statusLabel = getTrayStatusLabel(snapshot);
 
   tray.setImage(createTrayImage(snapshot));
-  tray.setTitle(formatTrayTitle(snapshot));
+  tray.setTitle("");
   tray.setToolTip(`Miru Time Tracking - ${statusLabel}`);
   publishTimerState(snapshot);
 
