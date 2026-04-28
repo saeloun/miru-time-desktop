@@ -88,9 +88,7 @@ interface AuthForm {
 const miruLogoUrl = new URL("../assets/miru-time-icon.svg", import.meta.url)
   .href;
 
-const tasks: Task[] = [
-  { id: "time", name: "Time entry" },
-];
+const tasks: Task[] = [{ id: "time", name: "Time entry" }];
 
 const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -165,9 +163,12 @@ function HomePage() {
   }, [timer.notes, timer.projectId, timer.taskId]);
 
   useEffect(() => {
-    window.miruTimer.getState().then(syncDesktopTimer).catch((error) => {
-      console.error("Failed to load desktop timer state", error);
-    });
+    window.miruTimer
+      .getState()
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to load desktop timer state", error);
+      });
 
     return window.miruTimer.onStateChange(syncDesktopTimer);
   }, []);
@@ -217,7 +218,14 @@ function HomePage() {
       .catch((error) => {
         console.error("Failed to sync desktop timer context", error);
       });
-  }, [clients, miruSession?.signedIn, projects, timer.notes, timer.projectId, timer.taskId]);
+  }, [
+    clients,
+    miruSession?.signedIn,
+    projects,
+    timer.notes,
+    timer.projectId,
+    timer.taskId,
+  ]);
 
   const selectedProject = projectById(timer.projectId, projects) ?? projects[0];
   const selectedClient = selectedProject
@@ -287,28 +295,39 @@ function HomePage() {
     setEntries(nextEntries);
     setTimer((current) => ({
       ...current,
-      projectId:
-        nextProjects.some((project) => project.id === current.projectId)
-          ? current.projectId
-          : nextProjects[0]?.id ?? "",
+      projectId: nextProjects.some(
+        (project) => project.id === current.projectId
+      )
+        ? current.projectId
+        : (nextProjects[0]?.id ?? ""),
       taskId: "time",
     }));
   }
 
   function toggleTimer() {
-    window.miruTimer.toggle().then(syncDesktopTimer).catch((error) => {
-      console.error("Failed to toggle desktop timer", error);
-    });
+    window.miruTimer
+      .toggle()
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to toggle desktop timer", error);
+      });
   }
 
   function resetTimer() {
-    window.miruTimer.reset().then(syncDesktopTimer).catch((error) => {
-      console.error("Failed to reset desktop timer", error);
-    });
+    window.miruTimer
+      .reset()
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to reset desktop timer", error);
+      });
   }
 
   async function saveTimerEntry() {
-    if (timer.elapsedSeconds < 60 || !selectedProject || !miruSession?.signedIn) {
+    if (
+      timer.elapsedSeconds < 60 ||
+      !selectedProject ||
+      !miruSession?.signedIn
+    ) {
       return;
     }
 
@@ -352,7 +371,10 @@ function HomePage() {
     const project = projectById(entryDraft.projectId, projects) ?? projects[0];
     const hours = parseHoursInput(entryDraft.hours);
 
-    if (!(project && miruSession?.signedIn) || (hours <= 0 && !startAfterSave)) {
+    if (
+      !(project && miruSession?.signedIn) ||
+      (hours <= 0 && !startAfterSave)
+    ) {
       return;
     }
 
@@ -395,9 +417,12 @@ function HomePage() {
     setEntryDialog(null);
 
     if (startAfterSave) {
-      window.miruTimer.start().then(syncDesktopTimer).catch((error) => {
-        console.error("Failed to start desktop timer", error);
-      });
+      window.miruTimer
+        .start()
+        .then(syncDesktopTimer)
+        .catch((error) => {
+          console.error("Failed to start desktop timer", error);
+        });
     }
   }
 
@@ -418,9 +443,12 @@ function HomePage() {
       taskId: entry.taskId,
     }));
     setSelectedDate(entry.date);
-    window.miruTimer.start().then(syncDesktopTimer).catch((error) => {
-      console.error("Failed to resume desktop timer", error);
-    });
+    window.miruTimer
+      .start()
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to resume desktop timer", error);
+      });
   }
 
   function changeIdleThreshold(seconds: number) {
@@ -465,7 +493,9 @@ function HomePage() {
       setMiruSession(session);
       setSyncMessage("Connected.");
     } catch (error) {
-      setSyncMessage(error instanceof Error ? error.message : "Miru sync failed.");
+      setSyncMessage(
+        error instanceof Error ? error.message : "Miru sync failed."
+      );
     }
   }
 
@@ -478,7 +508,9 @@ function HomePage() {
       syncDesktopTimer(result.timer);
       setSyncMessage(action === "pull" ? "Timer pulled." : "Timer pushed.");
     } catch (error) {
-      setSyncMessage(error instanceof Error ? error.message : "Timer sync failed.");
+      setSyncMessage(
+        error instanceof Error ? error.message : "Timer sync failed."
+      );
     }
   }
 
@@ -493,27 +525,14 @@ function HomePage() {
 
   async function openGoogleLogin() {
     await window.miruApi.googleLogin(authForm.baseUrl);
-    setSyncMessage("Google sign-in opened in your browser. Return here after signing in.");
+    setSyncMessage(
+      "Google sign-in opened in your browser. Return here after signing in."
+    );
   }
 
   return (
     <div className="flex h-screen flex-col bg-[#f7f8fb] text-foreground">
-      <header className="draglayer grid h-14 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
-        <div className="no-drag flex items-center gap-1.5 pr-1">
-          <button
-            aria-label="Close window"
-            className="size-3 rounded-full bg-[#ff5f57] ring-1 ring-black/10"
-            onClick={() => window.nativeDialog.closeWindow()}
-            type="button"
-          />
-          <button
-            aria-label="Minimize window"
-            className="size-3 rounded-full bg-[#ffbd2e] ring-1 ring-black/10"
-            onClick={() => window.nativeDialog.minimizeWindow()}
-            type="button"
-          />
-          <span className="size-3 rounded-full bg-[#28c840] ring-1 ring-black/10" />
-        </div>
+      <header className="draglayer grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <img
             alt=""
@@ -521,7 +540,9 @@ function HomePage() {
             src={miruLogoUrl}
           />
           <div className="min-w-0">
-            <h1 className="truncate font-semibold text-sm">Miru Time Tracking</h1>
+            <h1 className="truncate font-semibold text-sm">
+              Miru Time Tracking
+            </h1>
             <p className="text-muted-foreground text-xs">Employee tracker</p>
           </div>
         </div>
@@ -547,242 +568,255 @@ function HomePage() {
         />
       ) : (
         <>
-
-      <section className="shrink-0 border-b bg-background px-3 py-2">
-        <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "size-2 rounded-full",
-                  timer.running ? "bg-emerald-500" : "bg-muted-foreground/40"
-                )}
-              />
-              <span className="text-muted-foreground text-xs">
-                {timer.running ? "Tracking now" : "Ready to track"}
-              </span>
-            </div>
-            <p className="mt-1 font-mono font-semibold text-2xl tabular-nums">
-              {formatDuration(timer.elapsedSeconds)}
-            </p>
-            <p className="truncate text-muted-foreground text-xs">
-              {selectedClient?.name ?? "Miru"} / {selectedProject?.name ?? "Select project"} / {selectedTask.name}
-            </p>
-          </div>
-          <Button
-            className="size-12 rounded-full"
-            onClick={toggleTimer}
-            size="icon"
-            title={timer.running ? "Pause timer" : "Start timer"}
-            type="button"
-          >
-            {timer.running ? <Pause className="size-5" /> : <Play className="size-5" />}
-          </Button>
-        </div>
-        <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-          <Button
-            className="h-8"
-            disabled={timer.elapsedSeconds < 60 || !selectedProject}
-            onClick={saveTimerEntry}
-            variant="outline"
-          >
-            <Square />
-            Stop and save
-          </Button>
-          <Button
-            className="h-8"
-            disabled={timer.elapsedSeconds === 0}
-            onClick={resetTimer}
-            title="Reset timer"
-            variant="outline"
-          >
-            <RotateCcw />
-          </Button>
-        </div>
-      </section>
-
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
-        <section className="rounded-lg border bg-background shadow-sm">
-          <div className="border-b p-3">
-            <div className="flex items-start justify-between gap-3">
+          <section className="shrink-0 border-b bg-background px-3 py-2">
+            <div className="grid grid-cols-[1fr_auto] items-center gap-3">
               <div className="min-w-0">
-                <p className="text-muted-foreground text-xs">Time tracking</p>
-                <p className="truncate font-semibold text-base">
-                  {selectedClient?.name ?? "Miru"} / {selectedProject?.name ?? "Select project"}
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "size-2 rounded-full",
+                      timer.running
+                        ? "bg-emerald-500"
+                        : "bg-muted-foreground/40"
+                    )}
+                  />
+                  <span className="text-muted-foreground text-xs">
+                    {timer.running ? "Tracking now" : "Ready to track"}
+                  </span>
+                </div>
+                <p className="mt-1 font-mono font-semibold text-2xl tabular-nums">
+                  {formatDuration(timer.elapsedSeconds)}
                 </p>
                 <p className="truncate text-muted-foreground text-xs">
+                  {selectedClient?.name ?? "Miru"} /{" "}
+                  {selectedProject?.name ?? "Select project"} /{" "}
                   {selectedTask.name}
                 </p>
               </div>
-              <Clock3 className="mt-1 size-5 text-primary" />
-            </div>
-          </div>
-
-          <div className="grid gap-3 p-3">
-            <FieldLabel label="Project">
-              <Select
-                onChange={(value) => {
-                  setTimer((current) => ({
-                    ...current,
-                    billable: false,
-                    projectId: value,
-                  }));
-                }}
-                value={timer.projectId}
-              >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {clientById(project.clientId, clients)?.name ?? "Miru"} / {project.name}
-                  </option>
-                ))}
-              </Select>
-            </FieldLabel>
-            <div className="grid grid-cols-[1fr_7.25rem] gap-2">
-              <FieldLabel label="Task">
-                <Select
-                  onChange={(value) => {
-                    setTimer((current) => ({
-                      ...current,
-                      billable: false,
-                      taskId: value,
-                    }));
-                  }}
-                  value={timer.taskId}
-                >
-                  {tasks.map((task) => (
-                    <option key={task.id} value={task.id}>
-                      {task.name}
-                    </option>
-                  ))}
-                </Select>
-              </FieldLabel>
-              <FieldLabel label="Idle prompt">
-                <select
-                  className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                  onChange={(event) =>
-                    changeIdleThreshold(Number(event.target.value))
-                  }
-                  value={timer.idleThresholdSeconds}
-                >
-                  <option value={60}>1 min</option>
-                  <option value={300}>5 min</option>
-                  <option value={600}>10 min</option>
-                  <option value={900}>15 min</option>
-                  <option value={1800}>30 min</option>
-                </select>
-              </FieldLabel>
-            </div>
-            <FieldLabel label="Notes">
-              <input
-                className="h-9 rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
-                onChange={(event) =>
-                  setTimer((current) => ({
-                    ...current,
-                    notes: event.target.value,
-                  }))
-                }
-                placeholder="What are you working on?"
-                value={timer.notes}
-              />
-            </FieldLabel>
-          </div>
-        </section>
-
-        {timer.idle && (
-          <IdlePrompt
-            durationMs={timer.idle.durationMs}
-            onAction={applyIdleAction}
-          />
-        )}
-
-        {showSync && (
-          <SyncPanel
-            authForm={authForm}
-            authMode={authMode}
-            miruSession={miruSession}
-            onAuthFormChange={setAuthForm}
-            onAuthModeChange={setAuthMode}
-            onLogout={logoutMiru}
-            onQuit={() => window.nativeDialog.quitApp()}
-            onSubmitAuth={submitMiruAuth}
-            onSyncTimer={syncMiruTimer}
-            syncMessage={syncMessage}
-          />
-        )}
-
-        <section className="mt-3 min-h-0 flex-1 rounded-lg border bg-background shadow-sm">
-          <div className="flex items-center justify-between border-b p-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <CalendarDays className="size-4 text-primary" />
-                <p className="font-semibold text-sm">{dayTitle(selectedDate)}</p>
-              </div>
-              <p className="font-mono text-muted-foreground text-xs tabular-nums">
-                {formatHours(selectedDayHours)}h total
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                className="h-8 w-32 rounded-md border bg-background px-2 text-xs outline-none"
-                onChange={(event) => setSelectedDate(event.target.value)}
-                type="date"
-                value={selectedDate}
-              />
               <Button
-                className="h-8"
-                onClick={() => openNewEntry(selectedDate)}
+                className="size-12 rounded-full"
+                onClick={toggleTimer}
+                size="icon"
+                title={timer.running ? "Pause timer" : "Start timer"}
                 type="button"
               >
-                <Plus />
-                Add New Entry
+                {timer.running ? (
+                  <Pause className="size-5" />
+                ) : (
+                  <Play className="size-5" />
+                )}
               </Button>
             </div>
-          </div>
+            <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+              <Button
+                className="h-8"
+                disabled={timer.elapsedSeconds < 60 || !selectedProject}
+                onClick={saveTimerEntry}
+                variant="outline"
+              >
+                <Square />
+                Stop and save
+              </Button>
+              <Button
+                className="h-8"
+                disabled={timer.elapsedSeconds === 0}
+                onClick={resetTimer}
+                title="Reset timer"
+                variant="outline"
+              >
+                <RotateCcw />
+              </Button>
+            </div>
+          </section>
 
-          {selectedEntries.length === 0 ? (
-            <div className="grid min-h-36 place-items-center px-5 text-center">
-              <div>
-                <div className="mx-auto flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Clock3 className="size-5" />
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+            <section className="rounded-lg border bg-background shadow-sm">
+              <div className="border-b p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-xs">
+                      Time tracking
+                    </p>
+                    <p className="truncate font-semibold text-base">
+                      {selectedClient?.name ?? "Miru"} /{" "}
+                      {selectedProject?.name ?? "Select project"}
+                    </p>
+                    <p className="truncate text-muted-foreground text-xs">
+                      {selectedTask.name}
+                    </p>
+                  </div>
+                  <Clock3 className="mt-1 size-5 text-primary" />
                 </div>
-                <p className="mt-3 font-semibold text-sm">
-                  No time tracked for this day
-                </p>
-                <p className="mt-1 text-muted-foreground text-xs">
-                  Start the timer above or add a manual entry.
-                </p>
               </div>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {selectedEntries.map((entry) => (
-                <TimeEntryRow
-                  clients={clients}
-                  entry={entry}
-                  key={entry.id}
-                  onDelete={deleteEntry}
-                  onEdit={openEditEntry}
-                  onResume={resumeEntry}
-                  projects={projects}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      </main>
 
-      {entryDialog && (
-        <EntryEditorDialog
-          clients={clients}
-          draft={entryDraft}
-          mode={entryDialog.mode}
-          onChange={setEntryDraft}
-          onClose={() => setEntryDialog(null)}
-          onSave={() => saveEntryDraft(false)}
-          onStart={() => saveEntryDraft(true)}
-          projects={projects}
-        />
-      )}
+              <div className="grid gap-3 p-3">
+                <FieldLabel label="Project">
+                  <Select
+                    onChange={(value) => {
+                      setTimer((current) => ({
+                        ...current,
+                        billable: false,
+                        projectId: value,
+                      }));
+                    }}
+                    value={timer.projectId}
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {clientById(project.clientId, clients)?.name ?? "Miru"}{" "}
+                        / {project.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldLabel>
+                <div className="grid grid-cols-[1fr_7.25rem] gap-2">
+                  <FieldLabel label="Task">
+                    <Select
+                      onChange={(value) => {
+                        setTimer((current) => ({
+                          ...current,
+                          billable: false,
+                          taskId: value,
+                        }));
+                      }}
+                      value={timer.taskId}
+                    >
+                      {tasks.map((task) => (
+                        <option key={task.id} value={task.id}>
+                          {task.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </FieldLabel>
+                  <FieldLabel label="Idle prompt">
+                    <select
+                      className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                      onChange={(event) =>
+                        changeIdleThreshold(Number(event.target.value))
+                      }
+                      value={timer.idleThresholdSeconds}
+                    >
+                      <option value={60}>1 min</option>
+                      <option value={300}>5 min</option>
+                      <option value={600}>10 min</option>
+                      <option value={900}>15 min</option>
+                      <option value={1800}>30 min</option>
+                    </select>
+                  </FieldLabel>
+                </div>
+                <FieldLabel label="Notes">
+                  <input
+                    className="h-9 rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
+                    onChange={(event) =>
+                      setTimer((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    placeholder="What are you working on?"
+                    value={timer.notes}
+                  />
+                </FieldLabel>
+              </div>
+            </section>
+
+            {timer.idle && (
+              <IdlePrompt
+                durationMs={timer.idle.durationMs}
+                onAction={applyIdleAction}
+              />
+            )}
+
+            {showSync && (
+              <SyncPanel
+                authForm={authForm}
+                authMode={authMode}
+                miruSession={miruSession}
+                onAuthFormChange={setAuthForm}
+                onAuthModeChange={setAuthMode}
+                onLogout={logoutMiru}
+                onQuit={() => window.nativeDialog.quitApp()}
+                onSubmitAuth={submitMiruAuth}
+                onSyncTimer={syncMiruTimer}
+                syncMessage={syncMessage}
+              />
+            )}
+
+            <section className="mt-3 min-h-0 flex-1 rounded-lg border bg-background shadow-sm">
+              <div className="flex items-center justify-between border-b p-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="size-4 text-primary" />
+                    <p className="font-semibold text-sm">
+                      {dayTitle(selectedDate)}
+                    </p>
+                  </div>
+                  <p className="font-mono text-muted-foreground text-xs tabular-nums">
+                    {formatHours(selectedDayHours)}h total
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="h-8 w-32 rounded-md border bg-background px-2 text-xs outline-none"
+                    onChange={(event) => setSelectedDate(event.target.value)}
+                    type="date"
+                    value={selectedDate}
+                  />
+                  <Button
+                    className="h-8"
+                    onClick={() => openNewEntry(selectedDate)}
+                    type="button"
+                  >
+                    <Plus />
+                    Add New Entry
+                  </Button>
+                </div>
+              </div>
+
+              {selectedEntries.length === 0 ? (
+                <div className="grid min-h-36 place-items-center px-5 text-center">
+                  <div>
+                    <div className="mx-auto flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Clock3 className="size-5" />
+                    </div>
+                    <p className="mt-3 font-semibold text-sm">
+                      No time tracked for this day
+                    </p>
+                    <p className="mt-1 text-muted-foreground text-xs">
+                      Start the timer above or add a manual entry.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {selectedEntries.map((entry) => (
+                    <TimeEntryRow
+                      clients={clients}
+                      entry={entry}
+                      key={entry.id}
+                      onDelete={deleteEntry}
+                      onEdit={openEditEntry}
+                      onResume={resumeEntry}
+                      projects={projects}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </main>
+
+          {entryDialog && (
+            <EntryEditorDialog
+              clients={clients}
+              draft={entryDraft}
+              mode={entryDialog.mode}
+              onChange={setEntryDraft}
+              onClose={() => setEntryDialog(null)}
+              onSave={() => saveEntryDraft(false)}
+              onStart={() => saveEntryDraft(true)}
+              projects={projects}
+            />
+          )}
         </>
       )}
     </div>
@@ -938,7 +972,8 @@ function TimeEntryRow({
           </p>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground text-xs">
-          {clientById(entry.clientId, clients)?.name} / {taskById(entry.taskId)?.name}
+          {clientById(entry.clientId, clients)?.name} /{" "}
+          {taskById(entry.taskId)?.name}
         </p>
         {entry.notes && (
           <p className="mt-1 truncate text-muted-foreground text-xs">
@@ -1218,7 +1253,8 @@ function EntryEditorDialog({
             >
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {clientById(project.clientId, clients)?.name ?? "Miru"} / {project.name}
+                  {clientById(project.clientId, clients)?.name ?? "Miru"} /{" "}
+                  {project.name}
                 </option>
               ))}
             </Select>
@@ -1345,8 +1381,10 @@ function parseHoursInput(value: string) {
 
   if (trimmed.includes(":")) {
     const [hours, minutes] = trimmed.split(":").map((part) => Number(part));
-    return (Number.isFinite(hours) ? hours : 0) +
-      (Number.isFinite(minutes) ? minutes / 60 : 0);
+    return (
+      (Number.isFinite(hours) ? hours : 0) +
+      (Number.isFinite(minutes) ? minutes / 60 : 0)
+    );
   }
 
   const decimal = Number(trimmed);

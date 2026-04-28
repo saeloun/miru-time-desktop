@@ -285,26 +285,13 @@ function createTray() {
     return;
   }
 
-  const image = nativeImage.createFromDataURL(
-    `data:image/svg+xml;utf8,${encodeURIComponent(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-        <circle cx="9" cy="9" r="7" fill="none" stroke="black" stroke-width="2"/>
-        <path d="M9 4.5v5l3.25 2" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    `)}`
-  );
-  image.setTemplateImage(true);
-
-  tray = new Tray(image);
+  tray = new Tray(createTrayImage(getTimerSnapshot()));
   tray.setToolTip("Miru Time Tracking");
   tray.on("click", () => {
     openMainWindow();
   });
 
-  if (timerState.running && !trayTimer) {
-    trayTimer = setInterval(updateTray, 1000);
-  }
-
+  ensureTrayInterval();
   updateTray();
   startIdleMonitor();
 }
@@ -389,16 +376,13 @@ async function loadAccountState() {
 async function persistTimerState() {
   try {
     const filePath = timerStorePath();
-    await writeJsonFileAtomically(
-      filePath,
-      {
-        context: timerContext,
-        elapsedMs: currentElapsedMs(),
-        idleThresholdSeconds: timerSettings.idleThresholdSeconds,
-        running: timerState.running,
-        savedAt: Date.now(),
-      }
-    );
+    await writeJsonFileAtomically(filePath, {
+      context: timerContext,
+      elapsedMs: currentElapsedMs(),
+      idleThresholdSeconds: timerSettings.idleThresholdSeconds,
+      running: timerState.running,
+      savedAt: Date.now(),
+    });
   } catch (error) {
     console.error("Failed to persist timer state", error);
   }
@@ -407,19 +391,16 @@ async function persistTimerState() {
 async function persistAccountState() {
   try {
     const filePath = accountStorePath();
-    await writeJsonFileAtomically(
-      filePath,
-      {
-        authEmail: miruAccount.authEmail,
-        authToken: miruAccount.authToken,
-        baseUrl: miruAccount.baseUrl,
-        company: miruAccount.company,
-        companyRole: miruAccount.companyRole,
-        currentWorkspaceId: miruAccount.currentWorkspaceId,
-        user: miruAccount.user,
-        workspaces: miruAccount.workspaces,
-      }
-    );
+    await writeJsonFileAtomically(filePath, {
+      authEmail: miruAccount.authEmail,
+      authToken: miruAccount.authToken,
+      baseUrl: miruAccount.baseUrl,
+      company: miruAccount.company,
+      companyRole: miruAccount.companyRole,
+      currentWorkspaceId: miruAccount.currentWorkspaceId,
+      user: miruAccount.user,
+      workspaces: miruAccount.workspaces,
+    });
   } catch (error) {
     console.error("Failed to persist Miru account state", error);
   }
@@ -462,7 +443,10 @@ function setMiruAccountFromAuth(data: Record<string, any>, baseUrl: string) {
   miruAccount.company = data.company ?? null;
   miruAccount.companyRole = data.company_role ?? data.companyRole ?? "";
   miruAccount.currentWorkspaceId =
-    user.current_workspace_id ?? user.currentWorkspaceId ?? data.company?.id ?? null;
+    user.current_workspace_id ??
+    user.currentWorkspaceId ??
+    data.company?.id ??
+    null;
   miruAccount.user = user;
   miruAccount.syncStatus = token ? "synced" : "error";
   miruAccount.syncError = token ? "" : "Miru did not return an API token.";
@@ -477,18 +461,22 @@ async function loginToMiru(payload: {
   password: string;
 }) {
   const baseUrl = normalizeMiruBaseUrl(payload.baseUrl ?? miruAccount.baseUrl);
-  const response = await miruRequest("/users/login", {
-    body: {
+  const response = await miruRequest(
+    "/users/login",
+    {
+      body: {
         app: "miru-desktop",
-      user: {
-        email: payload.email,
-        locale: "en",
-        password: payload.password,
+        user: {
+          email: payload.email,
+          locale: "en",
+          password: payload.password,
+        },
       },
+      method: "POST",
+      skipAuth: true,
     },
-    method: "POST",
-    skipAuth: true,
-  }, baseUrl);
+    baseUrl
+  );
 
   const session = setMiruAccountFromAuth(response, baseUrl);
   await refreshWorkspaces();
@@ -503,19 +491,23 @@ async function signupToMiru(payload: {
   password: string;
 }) {
   const baseUrl = normalizeMiruBaseUrl(payload.baseUrl ?? miruAccount.baseUrl);
-  const response = await miruRequest("/users/signup", {
-    body: {
-      user: {
-        email: payload.email,
-        first_name: payload.firstName ?? "",
-        last_name: payload.lastName ?? "",
-        locale: "en",
-        password: payload.password,
+  const response = await miruRequest(
+    "/users/signup",
+    {
+      body: {
+        user: {
+          email: payload.email,
+          first_name: payload.firstName ?? "",
+          last_name: payload.lastName ?? "",
+          locale: "en",
+          password: payload.password,
+        },
       },
+      method: "POST",
+      skipAuth: true,
     },
-    method: "POST",
-    skipAuth: true,
-  }, baseUrl);
+    baseUrl
+  );
 
   const session = setMiruAccountFromAuth(response, baseUrl);
   await refreshWorkspaces();
@@ -557,7 +549,9 @@ async function refreshWorkspaces() {
 }
 
 async function openGoogleLogin(baseUrl?: string) {
-  const normalizedBaseUrl = normalizeMiruBaseUrl(baseUrl ?? miruAccount.baseUrl);
+  const normalizedBaseUrl = normalizeMiruBaseUrl(
+    baseUrl ?? miruAccount.baseUrl
+  );
   miruAccount.baseUrl = normalizedBaseUrl;
   await import("electron").then(({ shell }) =>
     shell.openExternal(`${normalizedBaseUrl}/users/auth/google_oauth2`)
@@ -566,7 +560,9 @@ async function openGoogleLogin(baseUrl?: string) {
   return getMiruSessionSnapshot();
 }
 
-async function getMiruTimeTracking(payload: { from?: string; to?: string; userId?: number | string } = {}) {
+async function getMiruTimeTracking(
+  payload: { from?: string; to?: string; userId?: number | string } = {}
+) {
   if (!miruAccount.authToken) {
     throw new Error("Sign in to load Miru projects and time entries.");
   }
@@ -644,13 +640,16 @@ async function saveTimerEntryToMiru(payload: {
     throw new Error("Sign in to save time to Miru.");
   }
 
-  const duration = payload.duration ?? Math.floor(currentElapsedMs() / 1000 / 60);
+  const duration =
+    payload.duration ?? Math.floor(currentElapsedMs() / 1000 / 60);
   if (duration < 1) {
     throw new Error("Track at least one minute before saving.");
   }
 
   const response = await miruRequest(
-    payload.userId ? `/timesheet_entry?user_id=${payload.userId}` : "/timesheet_entry",
+    payload.userId
+      ? `/timesheet_entry?user_id=${payload.userId}`
+      : "/timesheet_entry",
     {
       body: {
         project_id: payload.projectId,
@@ -695,7 +694,8 @@ function applyRemoteTimer(timer: any) {
     {
       billable: Boolean(timer.billable),
       notes: timer.notes ?? "",
-      projectName: timer.project_name ?? timer.projectName ?? timerContext.projectName,
+      projectName:
+        timer.project_name ?? timer.projectName ?? timerContext.projectName,
       taskName: timer.task_name ?? timer.taskName ?? timerContext.taskName,
     },
     false
@@ -752,7 +752,7 @@ async function miruRequest(
 
 function scheduleTimerPersist() {
   if (saveTimer) {
-    clearTimeout(saveTimer);
+    return;
   }
 
   saveTimer = setTimeout(() => {
@@ -838,11 +838,8 @@ function startTrayTimer() {
 
   timerState.running = true;
   timerState.startedAt = Date.now();
+  ensureTrayInterval();
   updateTray();
-
-  if (!trayTimer) {
-    trayTimer = setInterval(updateTray, 1000);
-  }
 
   return getTimerSnapshot();
 }
@@ -855,7 +852,6 @@ function pauseTrayTimer() {
   timerState.elapsedMs = currentElapsedMs();
   timerState.running = false;
   timerState.startedAt = 0;
-  stopTrayInterval();
   updateTray();
 
   return getTimerSnapshot();
@@ -866,7 +862,6 @@ function resetTrayTimer() {
   timerState.running = false;
   timerState.startedAt = 0;
   idleSession = null;
-  stopTrayInterval();
   updateTray();
 
   return getTimerSnapshot();
@@ -884,7 +879,9 @@ function applyIdleAction(action: IdleAction) {
     return getTimerSnapshot();
   }
 
-  const idleMs = idleSession ? Math.max(0, Date.now() - idleSession.startedAt) : 0;
+  const idleMs = idleSession
+    ? Math.max(0, Date.now() - idleSession.startedAt)
+    : 0;
 
   if (action === "remove-continue") {
     subtractIdleTime(idleMs);
@@ -907,6 +904,14 @@ function applyIdleAction(action: IdleAction) {
   updateTray();
 
   return getTimerSnapshot();
+}
+
+function ensureTrayInterval() {
+  if (trayTimer) {
+    return;
+  }
+
+  trayTimer = setInterval(() => updateTray({ persist: false }), 500);
 }
 
 function startIdleMonitor() {
@@ -1024,21 +1029,168 @@ function getTimerSnapshot() {
   };
 }
 
-function updateTray() {
+function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
+  const state = getTrayVisualState(snapshot);
+  const frame = Math.floor(Date.now() / 500) % 4;
+  const palette = getTrayPalette(state);
+  const pulse =
+    state === "running"
+      ? 0.35 + frame * 0.12
+      : state === "idle"
+        ? 0.55 + (frame % 2) * 0.28
+        : state === "paused"
+          ? 0.32 + (frame % 2) * 0.24
+          : 0.46 + frame * 0.08;
+  const offset =
+    state === "running" ? frame % 2 : state === "ready" ? frame % 4 : 0;
+  const glyph = getTrayGlyph(state);
+  const activity =
+    state === "running"
+      ? `<circle cx="${28 + offset}" cy="11" r="${3 + frame * 0.45}" fill="${palette.accent}" opacity="${pulse.toFixed(2)}"/>`
+      : state === "idle"
+        ? `<rect x="25.5" y="5" width="5" height="12" rx="2.5" fill="${palette.accent}" opacity="${pulse.toFixed(2)}"/>`
+        : state === "paused"
+          ? `<circle cx="28" cy="11" r="${3.4 + (frame % 2)}" fill="${palette.accent}" opacity="${pulse.toFixed(2)}"/>`
+          : state === "ready"
+            ? `<circle cx="${27 + offset}" cy="11" r="2" fill="${palette.accent}" opacity="0.72"/>`
+            : "";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="22" viewBox="0 0 36 22">
+      <rect x="1" y="2" width="34" height="18" rx="7" fill="${palette.background}"/>
+      <rect x="1.5" y="2.5" width="33" height="17" rx="6.5" fill="none" stroke="${palette.border}" stroke-width="1"/>
+      ${activity}
+      <g fill="#ffffff">${glyph}</g>
+    </svg>
+  `;
+  const image = nativeImage.createFromDataURL(
+    `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  );
+
+  image.setTemplateImage(false);
+  return image;
+}
+
+function getTrayVisualState(snapshot: ReturnType<typeof getTimerSnapshot>) {
+  if (snapshot.idle) {
+    return "idle";
+  }
+
+  if (snapshot.running) {
+    return "running";
+  }
+
+  if (snapshot.elapsedMs > 0) {
+    return "paused";
+  }
+
+  return "ready";
+}
+
+function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
+  const palettes = {
+    idle: {
+      accent: "#facc15",
+      background: "#b45309",
+      border: "#f59e0b",
+    },
+    paused: {
+      accent: "#c4b5fd",
+      background: "#5b5570",
+      border: "#8b7fc0",
+    },
+    ready: {
+      accent: "#a1a1aa",
+      background: "#34343a",
+      border: "#5b5b64",
+    },
+    running: {
+      accent: "#9f7aea",
+      background: "#5b34e8",
+      border: "#8b5cf6",
+    },
+  } as const;
+
+  return palettes[state];
+}
+
+function getTrayGlyph(state: ReturnType<typeof getTrayVisualState>) {
+  if (state === "running") {
+    return `
+      <rect x="10" y="6.5" width="3.2" height="9" rx="1.2"/>
+      <rect x="16" y="6.5" width="3.2" height="9" rx="1.2"/>
+    `;
+  }
+
+  if (state === "idle") {
+    return `
+      <rect x="13.5" y="5.5" width="3" height="8" rx="1.3"/>
+      <circle cx="15" cy="16" r="1.6"/>
+    `;
+  }
+
+  return `<path d="M12 6.3v9.4l8-4.7z"/>`;
+}
+
+function formatTrayTitle(snapshot: ReturnType<typeof getTimerSnapshot>) {
+  if (snapshot.idle) {
+    return `Idle ${snapshot.formatted}`;
+  }
+
+  if (snapshot.running || snapshot.elapsedMs > 0) {
+    return snapshot.formatted;
+  }
+
+  return "--:--";
+}
+
+function getTrayStatusLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
+  if (snapshot.idle) {
+    return `Idle for ${formatLongDuration(snapshot.idle.durationMs)}`;
+  }
+
+  if (snapshot.running) {
+    return `Tracking ${snapshot.formatted}`;
+  }
+
+  if (snapshot.elapsedMs > 0) {
+    return `Paused at ${snapshot.formatted}`;
+  }
+
+  return "Ready to track";
+}
+
+function getTrayDetailLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
+  if (snapshot.idle) {
+    return "Choose how to handle idle time";
+  }
+
+  if (snapshot.running) {
+    return "Timer running";
+  }
+
+  if (snapshot.elapsedMs > 0) {
+    return "Timer paused";
+  }
+
+  return "Timer not started";
+}
+
+function updateTray(options: { persist?: boolean } = {}) {
   if (!tray) {
     return;
   }
 
   const snapshot = getTimerSnapshot();
   const elapsed = snapshot.formatted;
+  const statusLabel = getTrayStatusLabel(snapshot);
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
       enabled: false,
-      label: `Miru Time - ${elapsed}`,
+      label: `Miru Time - ${statusLabel}`,
     },
     {
       enabled: false,
-      label: snapshot.running ? "Timer running" : "Timer paused",
+      label: getTrayDetailLabel(snapshot),
     },
     {
       enabled: false,
@@ -1106,10 +1258,15 @@ function updateTray() {
     },
   ];
 
-  tray.setTitle(snapshot.running ? `● ${elapsed}` : elapsed);
+  tray.setImage(createTrayImage(snapshot));
+  tray.setTitle(formatTrayTitle(snapshot));
+  tray.setToolTip(`Miru Time Tracking - ${statusLabel}`);
   tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
   publishTimerState(snapshot);
-  scheduleTimerPersist();
+
+  if (snapshot.running || options.persist !== false) {
+    scheduleTimerPersist();
+  }
 }
 
 function publishTimerState(snapshot = getTimerSnapshot()) {
@@ -1171,6 +1328,7 @@ app.on("before-quit", () => {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
+  stopTrayInterval();
   void persistTimerState();
   void persistAccountState();
   if (idleMonitor) {
