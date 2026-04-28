@@ -5,18 +5,39 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 interface MiruTimerState {
+  context: {
+    billable: boolean;
+    notes: string;
+    projectName: string;
+    taskName: string;
+  };
   elapsedMs: number;
   elapsedSeconds: number;
   formatted: string;
+  idle: {
+    durationMs: number;
+    prompted: boolean;
+  } | null;
+  idleThresholdSeconds: number;
   running: boolean;
 }
 
 interface Window {
   miruTimer: {
+    applyIdleAction: (
+      action: "remove-continue" | "remove-start-new" | "ignore-continue"
+    ) => Promise<MiruTimerState>;
     getState: () => Promise<MiruTimerState>;
     onStateChange: (callback: (state: MiruTimerState) => void) => () => void;
     pause: () => Promise<MiruTimerState>;
     reset: () => Promise<MiruTimerState>;
+    setContext: (context: {
+      billable: boolean;
+      notes: string;
+      projectName: string;
+      taskName: string;
+    }) => Promise<MiruTimerState>;
+    setIdleThreshold: (seconds: number) => Promise<MiruTimerState>;
     start: () => Promise<MiruTimerState>;
     toggle: () => Promise<MiruTimerState>;
   };

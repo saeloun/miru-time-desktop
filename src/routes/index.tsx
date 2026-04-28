@@ -102,6 +102,8 @@ interface TimerState {
   notes: string;
   billable: boolean;
   elapsedSeconds: number;
+  idle: MiruTimerState["idle"];
+  idleThresholdSeconds: number;
   running: boolean;
 }
 
@@ -347,6 +349,8 @@ const initialTimer: TimerState = {
   notes: "",
   billable: true,
   elapsedSeconds: 0,
+  idle: null,
+  idleThresholdSeconds: 300,
   running: false,
 };
 
@@ -399,9 +403,28 @@ function HomePage() {
     setTimer((current) => ({
       ...current,
       elapsedSeconds: state.elapsedSeconds,
+      idle: state.idle,
+      idleThresholdSeconds: state.idleThresholdSeconds,
       running: state.running,
     }));
   }
+
+  useEffect(() => {
+    const project = projectById(timer.projectId) ?? projects[0];
+    const task = taskById(timer.taskId) ?? tasks[0];
+
+    window.miruTimer
+      .setContext({
+        billable: timer.billable,
+        notes: timer.notes,
+        projectName: `${clientById(project.clientId)?.name} / ${project.name}`,
+        taskName: task.name,
+      })
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to sync desktop timer context", error);
+      });
+  }, [timer.billable, timer.notes, timer.projectId, timer.taskId]);
 
   const filteredEntries = useMemo(
     () =>
@@ -450,6 +473,26 @@ function HomePage() {
     window.miruTimer.toggle().then(syncDesktopTimer).catch((error) => {
       console.error("Failed to toggle desktop timer", error);
     });
+  }
+
+  function changeIdleThreshold(seconds: number) {
+    window.miruTimer
+      .setIdleThreshold(seconds)
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to update idle threshold", error);
+      });
+  }
+
+  function applyIdleAction(
+    action: "remove-continue" | "remove-start-new" | "ignore-continue"
+  ) {
+    window.miruTimer
+      .applyIdleAction(action)
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to apply idle action", error);
+      });
   }
 
   function saveTimerEntry() {
@@ -670,6 +713,40 @@ function HomePage() {
                   </div>
                 </div>
                 <div className="grid gap-3 p-4">
+                  {timer.idle && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-sm">Idle time detected</p>
+                          <p className="text-xs">
+                            Remove {formatLongDuration(timer.idle.durationMs)} or keep tracking.
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            onClick={() => applyIdleAction("remove-continue")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Remove + continue
+                          </Button>
+                          <Button
+                            onClick={() => applyIdleAction("remove-start-new")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Remove + new
+                          </Button>
+                          <Button
+                            onClick={() => applyIdleAction("ignore-continue")}
+                            size="sm"
+                          >
+                            Ignore
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Project">
                       <Select
@@ -739,6 +816,22 @@ function HomePage() {
                       Billable at {formatCurrency(selectedProject.rate)}/hour
                     </label>
                     <div className="flex items-center gap-2">
+                      <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-xs">
+                        Idle
+                        <select
+                          className="bg-transparent outline-none"
+                          onChange={(event) =>
+                            changeIdleThreshold(Number(event.target.value))
+                          }
+                          value={timer.idleThresholdSeconds}
+                        >
+                          <option value={60}>1m</option>
+                          <option value={300}>5m</option>
+                          <option value={600}>10m</option>
+                          <option value={900}>15m</option>
+                          <option value={1800}>30m</option>
+                        </select>
+                      </label>
                       <Button onClick={toggleTimer} size="lg">
                         {timer.running ? <Pause /> : <Play />}
                         {timer.running ? "Pause" : "Start"}
@@ -1307,6 +1400,22 @@ function formatDuration(seconds: number) {
   return [hours, minutes, remainingSeconds]
     .map((unit) => String(unit).padStart(2, "0"))
     .join(":");
+}
+
+function formatLongDuration(milliseconds: number) {
+  const totalMinutes = Math.max(1, Math.round(milliseconds / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+
+  if (minutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours} hr ${minutes} min`;
 }
 
 function formatHours(value: number) {
