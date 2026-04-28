@@ -58,6 +58,23 @@ test("renders the first page", async () => {
   expect(text).toBe("Miru Time Tracking");
 });
 
+test("shows employee time tracking without admin or billing UI", async () => {
+  const page: Page = await electronApp.firstWindow();
+
+  await page.waitForSelector("text=Miru Time Tracking");
+
+  const bodyText = await page.locator("body").innerText();
+  expect(bodyText).toContain("Employee tracker");
+  expect(bodyText).toContain("Time tracking");
+  expect(bodyText).not.toMatch(/\bDashboard\b/);
+  expect(bodyText).not.toMatch(/\bBillable\b/);
+  expect(bodyText).not.toMatch(/\bBilling\b/);
+  expect(bodyText).not.toMatch(/\bInvoices?\b/);
+  expect(bodyText).not.toMatch(/\bReports?\b/);
+  expect(bodyText).not.toMatch(/\bTeam\b/);
+  expect(bodyText).not.toMatch(/\$[0-9]/);
+});
+
 test("syncs desktop timer with the app timer", async () => {
   const page: Page = await electronApp.firstWindow();
 
@@ -139,6 +156,7 @@ test("resumes an existing entry into the shared desktop timer", async () => {
   expect(timerState.running).toBe(true);
   expect(timerState.context.notes).toBe("Resume me");
   expect(timerState.context.projectName).toContain("Northstar Labs");
+  expect(timerState.context.billable).toBe(false);
 });
 
 test("applies idle recovery branches through the desktop timer", async () => {

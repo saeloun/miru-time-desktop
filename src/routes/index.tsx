@@ -1,23 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  BarChart3,
   BriefcaseBusiness,
   CalendarDays,
-  ChevronDown,
-  CircleDollarSign,
   Clock3,
-  Download,
-  FileText,
   Filter,
-  Gauge,
   Info,
   Laptop,
-  LayoutDashboard,
   Pause,
   Pencil,
   Play,
   Plus,
-  ReceiptText,
   RotateCcw,
   Search,
   Settings,
@@ -25,7 +17,6 @@ import {
   Square,
   Star,
   Trash2,
-  Users,
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -33,8 +24,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 
 type EntryStatus = "running" | "submitted" | "approved" | "draft";
-type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
-type ProjectHealth = "healthy" | "watch" | "risk";
 
 interface Client {
   id: string;
@@ -46,26 +35,11 @@ interface Project {
   id: string;
   clientId: string;
   name: string;
-  budgetHours: number;
-  rate: number;
-  spentHours: number;
-  health: ProjectHealth;
-  billable: boolean;
 }
 
 interface Task {
   id: string;
   name: string;
-  defaultBillable: boolean;
-}
-
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  capacityHours: number;
-  trackedHours: number;
-  submittedHours: number;
 }
 
 interface TimeEntry {
@@ -79,25 +53,6 @@ interface TimeEntry {
   hours: number;
   billable: boolean;
   status: EntryStatus;
-}
-
-interface Invoice {
-  id: string;
-  clientId: string;
-  status: InvoiceStatus;
-  issueDate: string;
-  dueDate: string;
-  hours: number;
-  amount: number;
-}
-
-interface Expense {
-  id: string;
-  clientId: string;
-  projectId: string;
-  category: string;
-  amount: number;
-  status: "approved" | "pending";
 }
 
 interface TimerState {
@@ -149,85 +104,29 @@ const projects: Project[] = [
     id: "northstar-platform",
     clientId: "northstar",
     name: "Platform redesign",
-    budgetHours: 420,
-    rate: 160,
-    spentHours: 276,
-    health: "healthy",
-    billable: true,
   },
   {
     id: "northstar-support",
     clientId: "northstar",
     name: "Retainer support",
-    budgetHours: 120,
-    rate: 135,
-    spentHours: 98,
-    health: "watch",
-    billable: true,
   },
   {
     id: "atlas-mobile",
     clientId: "atlas",
     name: "Mobile ordering",
-    budgetHours: 260,
-    rate: 150,
-    spentHours: 246,
-    health: "risk",
-    billable: true,
   },
   {
     id: "kinetic-audit",
     clientId: "kinetic",
     name: "Compliance audit",
-    budgetHours: 180,
-    rate: 175,
-    spentHours: 82,
-    health: "healthy",
-    billable: true,
   },
 ];
 
 const tasks: Task[] = [
-  { id: "design", name: "Design", defaultBillable: true },
-  { id: "development", name: "Development", defaultBillable: true },
-  { id: "qa", name: "QA", defaultBillable: true },
-  { id: "pm", name: "Project management", defaultBillable: true },
-  { id: "internal", name: "Internal admin", defaultBillable: false },
-];
-
-const team: TeamMember[] = [
-  {
-    id: "vipul",
-    name: "Vipul A M",
-    role: "Engineering lead",
-    capacityHours: 40,
-    trackedHours: 34.5,
-    submittedHours: 32,
-  },
-  {
-    id: "ana",
-    name: "Ana Rodrigues",
-    role: "Product designer",
-    capacityHours: 36,
-    trackedHours: 29,
-    submittedHours: 29,
-  },
-  {
-    id: "sam",
-    name: "Sam Patel",
-    role: "Full-stack engineer",
-    capacityHours: 40,
-    trackedHours: 41.25,
-    submittedHours: 38,
-  },
-  {
-    id: "nora",
-    name: "Nora Chen",
-    role: "QA analyst",
-    capacityHours: 32,
-    trackedHours: 24,
-    submittedHours: 20,
-  },
+  { id: "design", name: "Design" },
+  { id: "development", name: "Development" },
+  { id: "qa", name: "QA" },
+  { id: "pm", name: "Project management" },
 ];
 
 const seededEntries: TimeEntry[] = [
@@ -238,9 +137,9 @@ const seededEntries: TimeEntry[] = [
     clientId: "northstar",
     projectId: "northstar-platform",
     taskId: "development",
-    notes: "Electron shell and dashboard layout",
+    notes: "Electron shell and timer layout",
     hours: 6.25,
-    billable: true,
+    billable: false,
     status: "approved",
   },
   {
@@ -252,7 +151,7 @@ const seededEntries: TimeEntry[] = [
     taskId: "design",
     notes: "Timesheet review flow",
     hours: 4.5,
-    billable: true,
+    billable: false,
     status: "submitted",
   },
   {
@@ -264,7 +163,7 @@ const seededEntries: TimeEntry[] = [
     taskId: "development",
     notes: "Offline timer persistence",
     hours: 7.75,
-    billable: true,
+    billable: false,
     status: "submitted",
   },
   {
@@ -276,7 +175,7 @@ const seededEntries: TimeEntry[] = [
     taskId: "qa",
     notes: "Audit evidence checks",
     hours: 5,
-    billable: true,
+    billable: false,
     status: "draft",
   },
   {
@@ -288,87 +187,14 @@ const seededEntries: TimeEntry[] = [
     taskId: "pm",
     notes: "Retainer planning and client call",
     hours: 3.25,
-    billable: true,
-    status: "approved",
-  },
-  {
-    id: "entry-6",
-    date: "2026-04-24",
-    personId: "sam",
-    clientId: "northstar",
-    projectId: "northstar-support",
-    taskId: "internal",
-    notes: "Team retro and estimates",
-    hours: 1.5,
     billable: false,
     status: "approved",
   },
 ];
 
-const invoices: Invoice[] = [
-  {
-    id: "INV-1048",
-    clientId: "northstar",
-    status: "sent",
-    issueDate: "2026-04-20",
-    dueDate: "2026-05-05",
-    hours: 72.5,
-    amount: 11_240,
-  },
-  {
-    id: "INV-1047",
-    clientId: "atlas",
-    status: "overdue",
-    issueDate: "2026-04-10",
-    dueDate: "2026-04-25",
-    hours: 48,
-    amount: 7200,
-  },
-  {
-    id: "INV-1046",
-    clientId: "kinetic",
-    status: "paid",
-    issueDate: "2026-04-02",
-    dueDate: "2026-04-17",
-    hours: 36,
-    amount: 6300,
-  },
-];
-
-const expenses: Expense[] = [
-  {
-    id: "EXP-221",
-    clientId: "northstar",
-    projectId: "northstar-platform",
-    category: "Research tools",
-    amount: 248,
-    status: "approved",
-  },
-  {
-    id: "EXP-222",
-    clientId: "atlas",
-    projectId: "atlas-mobile",
-    category: "Device lab",
-    amount: 640,
-    status: "pending",
-  },
-  {
-    id: "EXP-223",
-    clientId: "kinetic",
-    projectId: "kinetic-audit",
-    category: "Travel",
-    amount: 1180,
-    status: "approved",
-  },
-];
-
 const tabs = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "time", label: "Time", icon: Clock3 },
   { id: "projects", label: "Projects", icon: BriefcaseBusiness },
-  { id: "team", label: "Team", icon: Users },
-  { id: "reports", label: "Reports", icon: BarChart3 },
-  { id: "invoices", label: "Invoices", icon: ReceiptText },
   { id: "settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -378,7 +204,7 @@ const initialTimer: TimerState = {
   projectId: projects[0].id,
   taskId: "development",
   notes: "",
-  billable: true,
+  billable: false,
   elapsedSeconds: 0,
   idle: null,
   idleThresholdSeconds: 300,
@@ -389,7 +215,7 @@ const todayIso = new Date().toISOString().slice(0, 10);
 
 function newEntryDraft(date = todayIso): EntryDraft {
   return {
-    billable: true,
+    billable: false,
     date,
     hours: "0:00",
     notes: "",
@@ -410,7 +236,7 @@ function HomePage() {
 
     return {
       ...initialTimer,
-      billable: parsedTimer.billable ?? initialTimer.billable,
+      billable: false,
       notes: parsedTimer.notes ?? initialTimer.notes,
       projectId: parsedTimer.projectId ?? initialTimer.projectId,
       taskId: parsedTimer.taskId ?? initialTimer.taskId,
@@ -442,7 +268,7 @@ function HomePage() {
     window.localStorage.setItem(
       "pulse-timer",
       JSON.stringify({
-        billable: timer.billable,
+        billable: false,
         notes: timer.notes,
         projectId: timer.projectId,
         taskId: timer.taskId,
@@ -486,7 +312,7 @@ function HomePage() {
 
     window.miruTimer
       .setContext({
-        billable: timer.billable,
+        billable: false,
         notes: timer.notes,
         projectName: `${clientById(project.clientId)?.name} / ${project.name}`,
         taskName: task.name,
@@ -495,7 +321,7 @@ function HomePage() {
       .catch((error) => {
         console.error("Failed to sync desktop timer context", error);
       });
-  }, [timer.billable, timer.notes, timer.projectId, timer.taskId]);
+  }, [timer.notes, timer.projectId, timer.taskId]);
 
   const filteredEntries = useMemo(
     () =>
@@ -509,7 +335,6 @@ function HomePage() {
           project?.name,
           client?.name,
           taskById(entry.taskId)?.name,
-          memberById(entry.personId)?.name,
         ]
           .join(" ")
           .toLowerCase();
@@ -518,23 +343,6 @@ function HomePage() {
       }),
     [clientFilter, entries, query]
   );
-
-  const metrics = useMemo(() => {
-    const totalHours = entries.reduce((total, entry) => total + entry.hours, 0);
-    const billableHours = entries.reduce(
-      (total, entry) => total + (entry.billable ? entry.hours : 0),
-      0
-    );
-    const billableAmount = entries.reduce((total, entry) => {
-      const project = projectById(entry.projectId);
-      return total + (entry.billable && project ? entry.hours * project.rate : 0);
-    }, 0);
-    const pendingApprovals = entries.filter(
-      (entry) => entry.status === "submitted"
-    ).length;
-
-    return { billableAmount, billableHours, pendingApprovals, totalHours };
-  }, [entries]);
 
   const selectedProject = projectById(timer.projectId) ?? projects[0];
   const selectedClient = clientById(selectedProject.clientId) ?? clients[0];
@@ -584,7 +392,7 @@ function HomePage() {
         taskId: timer.taskId,
         notes: timer.notes || "Timer entry",
         hours: roundToQuarter(elapsedHours),
-        billable: timer.billable,
+        billable: false,
         status: "draft",
       },
       ...current,
@@ -613,7 +421,7 @@ function HomePage() {
   function openNewEntry(date = selectedDate) {
     setEntryDraft({
       ...newEntryDraft(date),
-      billable: timer.billable,
+      billable: false,
       notes: timer.notes,
       projectId: timer.projectId,
       taskId: timer.taskId,
@@ -646,7 +454,7 @@ function HomePage() {
           entry.id === entryDialog.entryId
             ? {
                 ...entry,
-                billable: entryDraft.billable,
+                billable: false,
                 clientId: project.clientId,
                 date: entryDraft.date,
                 hours,
@@ -661,7 +469,7 @@ function HomePage() {
       setEntries((current) => [
         {
           id: `entry-${Date.now()}`,
-          billable: entryDraft.billable,
+          billable: false,
           clientId: project.clientId,
           date: entryDraft.date,
           hours,
@@ -677,7 +485,7 @@ function HomePage() {
 
     setTimer((current) => ({
       ...current,
-      billable: entryDraft.billable,
+      billable: false,
       notes: entryDraft.notes,
       projectId: entryDraft.projectId,
       taskId: entryDraft.taskId,
@@ -703,7 +511,7 @@ function HomePage() {
   function resumeEntry(entry: TimeEntry) {
     setTimer((current) => ({
       ...current,
-      billable: entry.billable,
+      billable: false,
       notes: entry.notes,
       projectId: entry.projectId,
       taskId: entry.taskId,
@@ -712,14 +520,6 @@ function HomePage() {
     window.miruTimer.start().then(syncDesktopTimer).catch((error) => {
       console.error("Failed to resume desktop timer", error);
     });
-  }
-
-  function approveSubmittedEntries() {
-    setEntries((current) =>
-      current.map((entry) =>
-        entry.status === "submitted" ? { ...entry, status: "approved" } : entry
-      )
-    );
   }
 
   async function submitMiruAuth() {
@@ -787,7 +587,7 @@ function HomePage() {
             />
             <div>
               <h1 className="font-semibold text-sm">Miru Time Tracking</h1>
-              <p className="text-muted-foreground text-xs">Billable work</p>
+              <p className="text-muted-foreground text-xs">Employee tracker</p>
             </div>
           </div>
         </div>
@@ -892,287 +692,6 @@ function HomePage() {
 
         <main className="min-h-0 flex-1 overflow-auto bg-muted/30 p-4">
           <div className="grid gap-4">
-            {activeTab !== "time" && (
-              <>
-                <div className="grid grid-cols-4 gap-3">
-                  <Metric
-                    icon={Clock3}
-                    label="Tracked"
-                    value={`${formatHours(metrics.totalHours)}h`}
-                    detail={`${formatHours(metrics.billableHours)} billable`}
-                  />
-                  <Metric
-                    icon={CircleDollarSign}
-                    label="Billable value"
-                    value={formatCurrency(metrics.billableAmount)}
-                    detail="Based on project rates"
-                  />
-                  <Metric
-                    icon={Gauge}
-                    label="Utilization"
-                    value={`${Math.round((metrics.totalHours / 180) * 100)}%`}
-                    detail="Team capacity this week"
-                  />
-                  <Metric
-                    icon={ShieldCheck}
-                    label="Approvals"
-                    value={String(metrics.pendingApprovals)}
-                    detail="Timesheets pending"
-                  />
-                </div>
-
-                <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
-                  <section className="rounded-md border bg-background">
-                <div className="flex items-center justify-between border-b p-4">
-                  <div>
-                    <h3 className="font-semibold">Timer</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Track work against clients, projects, tasks, and notes.
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-3xl tabular-nums">
-                      {formatDuration(timer.elapsedSeconds)}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {timer.running ? "Running in menu bar" : "Paused"}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-3 p-4">
-                  {timer.idle && (
-                    <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-primary">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-sm">Idle time detected</p>
-                          <p className="text-xs">
-                            Remove {formatLongDuration(timer.idle.durationMs)} or keep tracking.
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 gap-2">
-                          <Button
-                            onClick={() => applyIdleAction("remove-continue")}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Remove + continue
-                          </Button>
-                          <Button
-                            onClick={() => applyIdleAction("remove-start-new")}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Remove + new
-                          </Button>
-                          <Button
-                            onClick={() => applyIdleAction("ignore-continue")}
-                            size="sm"
-                          >
-                            Ignore
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Project">
-                      <Select
-                        onChange={(value) => {
-                          const project = projectById(value) ?? projects[0];
-                          setTimer((current) => ({
-                            ...current,
-                            billable: project.billable,
-                            projectId: value,
-                          }));
-                        }}
-                        value={timer.projectId}
-                      >
-                        {projects.map((project) => (
-                          <option key={project.id} value={project.id}>
-                            {clientById(project.clientId)?.name} / {project.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <Field label="Task">
-                      <Select
-                        onChange={(value) => {
-                          const task = taskById(value) ?? tasks[0];
-                          setTimer((current) => ({
-                            ...current,
-                            billable: task.defaultBillable,
-                            taskId: value,
-                          }));
-                        }}
-                        value={timer.taskId}
-                      >
-                        {tasks.map((task) => (
-                          <option key={task.id} value={task.id}>
-                            {task.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  </div>
-                  <Field label="Notes">
-                    <input
-                      className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/30"
-                      onChange={(event) =>
-                        setTimer((current) => ({
-                          ...current,
-                          notes: event.target.value,
-                        }))
-                      }
-                      placeholder="What are you working on?"
-                      value={timer.notes}
-                    />
-                  </Field>
-                  <div className="grid gap-3 rounded-md border bg-muted/30 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-sm">
-                          {timer.running ? "Timer is running" : "Ready to track"}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {timer.running
-                            ? "Pause for interruptions, or stop when this work is done."
-                            : "Start from the desktop app or the macOS menu bar."}
-                        </p>
-                      </div>
-                      <div className="font-mono text-2xl tabular-nums">
-                        {formatDuration(timer.elapsedSeconds)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                      <Button
-                        className={cn(
-                          "h-11 text-sm",
-                          timer.running
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "bg-primary text-primary-foreground"
-                        )}
-                        onClick={toggleTimer}
-                        size="lg"
-                      >
-                        {timer.running ? <Pause /> : <Play />}
-                        {timer.running ? "Pause" : "Start"}
-                      </Button>
-                      <Button
-                        className="h-11 text-sm"
-                        disabled={timer.elapsedSeconds < 60}
-                        onClick={saveTimerEntry}
-                        size="lg"
-                        variant="outline"
-                      >
-                        <Square />
-                        Stop & save
-                      </Button>
-                      <Button
-                        className="h-11"
-                        disabled={timer.elapsedSeconds === 0}
-                        onClick={resetTimer}
-                        size="lg"
-                        title="Reset timer"
-                        variant="ghost"
-                      >
-                        <RotateCcw />
-                        Reset
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        checked={timer.billable}
-                        className="size-4 accent-primary"
-                        onChange={(event) =>
-                          setTimer((current) => ({
-                            ...current,
-                            billable: event.target.checked,
-                          }))
-                        }
-                        type="checkbox"
-                      />
-                      Billable at {formatCurrency(selectedProject.rate)}/hour
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-xs">
-                        Idle
-                        <select
-                          className="bg-transparent outline-none"
-                          onChange={(event) =>
-                            changeIdleThreshold(Number(event.target.value))
-                          }
-                          value={timer.idleThresholdSeconds}
-                        >
-                          <option value={60}>1m</option>
-                          <option value={300}>5m</option>
-                          <option value={600}>10m</option>
-                          <option value={900}>15m</option>
-                          <option value={1800}>30m</option>
-                        </select>
-                      </label>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 rounded-md bg-muted/60 p-3 text-sm">
-                    <SummaryItem label="Client" value={selectedClient.name} />
-                    <SummaryItem label="Contact" value={selectedClient.contact} />
-                    <SummaryItem
-                      label="Budget used"
-                      value={`${Math.round(
-                        (selectedProject.spentHours / selectedProject.budgetHours) *
-                          100
-                      )}%`}
-                    />
-                  </div>
-                </div>
-                  </section>
-
-                  <section className="rounded-md border bg-background">
-                <div className="flex items-center justify-between border-b p-4">
-                  <div>
-                    <h3 className="font-semibold">Timesheet approvals</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Review submitted time before invoices are generated.
-                    </p>
-                  </div>
-                  <Button onClick={approveSubmittedEntries} variant="outline">
-                    <ShieldCheck />
-                    Approve
-                  </Button>
-                </div>
-                <div className="divide-y">
-                  {team.map((member) => (
-                    <div className="grid grid-cols-[1fr_auto] gap-3 p-4" key={member.id}>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm">{member.name}</p>
-                          <Badge tone={member.trackedHours > member.capacityHours ? "amber" : "green"}>
-                            {formatHours(member.trackedHours)}h
-                          </Badge>
-                        </div>
-                        <p className="text-muted-foreground text-xs">{member.role}</p>
-                        <Progress
-                          value={member.trackedHours}
-                          max={member.capacityHours}
-                          tone={member.trackedHours > member.capacityHours ? "amber" : "green"}
-                        />
-                      </div>
-                      <div className="text-right text-xs">
-                        <p className="font-medium">{formatHours(member.submittedHours)}h</p>
-                        <p className="text-muted-foreground">submitted</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                  </section>
-                </div>
-              </>
-            )}
-
-            {activeTab === "dashboard" && (
-              <DashboardPanel entries={filteredEntries} />
-            )}
             {activeTab === "time" && (
               <>
                 <section className="rounded-lg border bg-background p-4 shadow-sm">
@@ -1219,10 +738,9 @@ function HomePage() {
                   <div className="mt-4 grid grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] gap-2">
                     <Select
                       onChange={(value) => {
-                        const project = projectById(value) ?? projects[0];
                         setTimer((current) => ({
                           ...current,
-                          billable: project.billable,
+                          billable: false,
                           projectId: value,
                         }));
                       }}
@@ -1236,10 +754,9 @@ function HomePage() {
                     </Select>
                     <Select
                       onChange={(value) => {
-                        const task = taskById(value) ?? tasks[0];
                         setTimer((current) => ({
                           ...current,
-                          billable: task.defaultBillable,
+                          billable: false,
                           taskId: value,
                         }));
                       }}
@@ -1264,20 +781,9 @@ function HomePage() {
                     value={timer.notes}
                   />
                   <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        checked={timer.billable}
-                        className="size-4 accent-primary"
-                        onChange={(event) =>
-                          setTimer((current) => ({
-                            ...current,
-                            billable: event.target.checked,
-                          }))
-                        }
-                        type="checkbox"
-                      />
-                      Billable at {formatCurrency(selectedProject.rate)}/hour
-                    </label>
+                    <div className="text-muted-foreground text-sm">
+                      {selectedClient.name}
+                    </div>
                     <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-xs">
                       Idle
                       <select
@@ -1339,9 +845,6 @@ function HomePage() {
               </>
             )}
             {activeTab === "projects" && <ProjectsPanel />}
-            {activeTab === "team" && <TeamPanel />}
-            {activeTab === "reports" && <ReportsPanel entries={filteredEntries} />}
-            {activeTab === "invoices" && <InvoicesPanel />}
             {activeTab === "settings" && (
               <SettingsPanel
                 authForm={authForm}
@@ -1371,45 +874,6 @@ function HomePage() {
         />
       )}
     </div>
-  );
-}
-
-function DashboardPanel({ entries }: { entries: TimeEntry[] }) {
-  return (
-    <section className="grid grid-cols-[1fr_18rem] gap-4">
-      <div className="rounded-md border bg-background">
-        <PanelHeader
-          action={<Button variant="outline"><Download />Export</Button>}
-          description="Recent time across the workspace"
-          title="Activity"
-        />
-        <EntryTable entries={entries.slice(0, 6)} />
-      </div>
-      <div className="rounded-md border bg-background">
-        <PanelHeader description="Billable pipeline" title="Revenue forecast" />
-        <div className="space-y-4 p-4">
-          {clients.map((client) => {
-            const clientProjects = projects.filter(
-              (project) => project.clientId === client.id
-            );
-            const forecast = clientProjects.reduce(
-              (total, project) => total + project.spentHours * project.rate,
-              0
-            );
-
-            return (
-              <div key={client.id}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{client.name}</span>
-                  <span>{formatCurrency(forecast)}</span>
-                </div>
-                <Progress value={forecast} max={70_000} tone="blue" />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -1645,7 +1109,7 @@ function EntryEditorDialog({
                     const project = projectById(event.target.value) ?? projects[0];
                     onChange({
                       ...draft,
-                      billable: project.billable,
+                      billable: false,
                       projectId: project.id,
                     });
                   }}
@@ -1663,11 +1127,10 @@ function EntryEditorDialog({
                 <select
                   className="h-10 bg-transparent text-lg outline-none focus:text-primary"
                   onChange={(event) => {
-                    const task = taskById(event.target.value) ?? tasks[0];
                     onChange({
                       ...draft,
-                      billable: task.defaultBillable,
-                      taskId: task.id,
+                      billable: false,
+                      taskId: event.target.value,
                     });
                   }}
                   value={draft.taskId}
@@ -1699,17 +1162,6 @@ function EntryEditorDialog({
             <div className="text-muted-foreground text-sm">
               {selectedClient?.name} / {selectedProject.name}
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                checked={draft.billable}
-                className="size-4 accent-primary"
-                onChange={(event) =>
-                  onChange({ ...draft, billable: event.target.checked })
-                }
-                type="checkbox"
-              />
-              Billable
-            </label>
           </div>
         </div>
         <div className="flex items-center justify-end gap-3 border-t bg-muted/40 px-6 py-4">
@@ -1738,157 +1190,32 @@ function EntryEditorDialog({
 }
 
 function ProjectsPanel() {
+  const assignedTasks = tasks.filter((task) => task.id !== "internal");
+
   return (
     <section className="grid grid-cols-2 gap-4">
       {projects.map((project) => (
         <div className="rounded-md border bg-background p-4" key={project.id}>
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="font-semibold">{project.name}</p>
-              <p className="text-muted-foreground text-sm">
-                {clientById(project.clientId)?.name}
-              </p>
-            </div>
-            <Badge tone={healthTone(project.health)}>{project.health}</Badge>
+          <div>
+            <p className="text-muted-foreground text-xs">Assigned project</p>
+            <p className="font-semibold">{project.name}</p>
+            <p className="text-muted-foreground text-sm">
+              {clientById(project.clientId)?.name}
+            </p>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-            <SummaryItem label="Budget" value={`${project.budgetHours}h`} />
-            <SummaryItem label="Tracked" value={`${formatHours(project.spentHours)}h`} />
-            <SummaryItem label="Rate" value={`${formatCurrency(project.rate)}/h`} />
+          <div className="mt-4 grid gap-2">
+            {assignedTasks.slice(0, 4).map((task) => (
+              <div
+                className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm"
+                key={`${project.id}-${task.id}`}
+              >
+                <span>{task.name}</span>
+                <Clock3 className="size-4 text-muted-foreground" />
+              </div>
+            ))}
           </div>
-          <Progress
-            max={project.budgetHours}
-            tone={project.health === "risk" ? "red" : project.health === "watch" ? "amber" : "green"}
-            value={project.spentHours}
-          />
         </div>
       ))}
-    </section>
-  );
-}
-
-function TeamPanel() {
-  return (
-    <section className="rounded-md border bg-background">
-      <PanelHeader
-        action={<Button variant="outline"><CalendarDays />Schedule</Button>}
-        description="Capacity, utilization, and approval status"
-        title="Team"
-      />
-      <div className="grid grid-cols-4 gap-3 p-4">
-        {team.map((member) => (
-          <div className="rounded-md border p-3" key={member.id}>
-            <p className="font-semibold text-sm">{member.name}</p>
-            <p className="text-muted-foreground text-xs">{member.role}</p>
-            <Progress
-              max={member.capacityHours}
-              tone={member.trackedHours > member.capacityHours ? "amber" : "green"}
-              value={member.trackedHours}
-            />
-            <div className="mt-3 flex justify-between text-xs">
-              <span>{formatHours(member.trackedHours)}h tracked</span>
-              <span>{member.capacityHours}h cap</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ReportsPanel({ entries }: { entries: TimeEntry[] }) {
-  const taskTotals = tasks.map((task) => ({
-    ...task,
-    hours: entries
-      .filter((entry) => entry.taskId === task.id)
-      .reduce((total, entry) => total + entry.hours, 0),
-  }));
-  const maxHours = Math.max(...taskTotals.map((task) => task.hours), 1);
-
-  return (
-    <section className="grid grid-cols-[1fr_20rem] gap-4">
-      <div className="rounded-md border bg-background">
-        <PanelHeader
-          action={<Button variant="outline"><Download />CSV</Button>}
-          description="Hours by task, client, billable status, and project"
-          title="Reports"
-        />
-        <div className="space-y-4 p-4">
-          {taskTotals.map((task) => (
-            <div className="grid grid-cols-[10rem_1fr_4rem] items-center gap-3" key={task.id}>
-              <span className="text-sm">{task.name}</span>
-              <Progress max={maxHours} tone={task.defaultBillable ? "blue" : "amber"} value={task.hours} />
-              <span className="text-right font-mono text-sm">
-                {formatHours(task.hours)}h
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="rounded-md border bg-background">
-        <PanelHeader description="Saved views" title="Report library" />
-        <div className="space-y-2 p-4">
-          {["Uninvoiced billable time", "Project budget burn", "Team utilization", "Client profitability"].map((report) => (
-            <button
-              className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
-              key={report}
-              type="button"
-            >
-              <span>{report}</span>
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function InvoicesPanel() {
-  return (
-    <section className="grid grid-cols-[1fr_18rem] gap-4">
-      <div className="rounded-md border bg-background">
-        <PanelHeader
-          action={<Button><FileText />New invoice</Button>}
-          description="Create invoices from approved billable time and expenses"
-          title="Invoices"
-        />
-        <div className="divide-y">
-          {invoices.map((invoice) => (
-            <div className="grid grid-cols-[8rem_1fr_8rem_8rem] items-center gap-3 p-4 text-sm" key={invoice.id}>
-              <div>
-                <p className="font-semibold">{invoice.id}</p>
-                <p className="text-muted-foreground text-xs">{invoice.issueDate}</p>
-              </div>
-              <div>
-                <p>{clientById(invoice.clientId)?.name}</p>
-                <p className="text-muted-foreground text-xs">Due {invoice.dueDate}</p>
-              </div>
-              <Badge tone={invoiceTone(invoice.status)}>{invoice.status}</Badge>
-              <p className="text-right font-semibold">{formatCurrency(invoice.amount)}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="rounded-md border bg-background">
-        <PanelHeader description="Receipts and reimbursements" title="Expenses" />
-        <div className="divide-y">
-          {expenses.map((expense) => (
-            <div className="p-4 text-sm" key={expense.id}>
-              <div className="flex items-center justify-between">
-                <p className="font-medium">{expense.category}</p>
-                <Badge tone={expense.status === "approved" ? "green" : "amber"}>
-                  {expense.status}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {clientById(expense.clientId)?.name} / {projectById(expense.projectId)?.name}
-              </p>
-              <p className="mt-1 font-semibold">{formatCurrency(expense.amount)}</p>
-            </div>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }
@@ -2066,12 +1393,9 @@ function SettingsPanel({
 
       <div className="col-span-2 grid grid-cols-3 gap-4">
         {[
-          ["Workspace", "Roles, permissions, approval rules", ShieldCheck],
-          ["Billing", "Rates, tax, invoice numbering", CircleDollarSign],
-          ["Notifications", "Weekly reminders and nudges", CalendarDays],
-          ["Integrations", "Calendar, GitHub, Slack, accounting", Laptop],
-          ["Import", "CSV imports from other time systems", Download],
-          ["Security", "Audit log and session controls", Settings],
+          ["Workspace", "Switch workspace and keep timer state synced", ShieldCheck],
+          ["Timer", "Idle recovery, menu bar controls, and local persistence", Clock3],
+          ["Integrations", "Connect Miru web current timer sync", Laptop],
         ].map(([title, description, Icon]) => (
           <div className="rounded-md border bg-background p-4" key={String(title)}>
             {typeof Icon !== "string" && <Icon className="size-5 text-primary" />}
@@ -2099,64 +1423,6 @@ function FieldLabel({
   );
 }
 
-function EntryTable({ entries }: { entries: TimeEntry[] }) {
-  return (
-    <div className="overflow-hidden">
-      <div className="grid grid-cols-[6rem_1fr_9rem_7rem_6rem_7rem] gap-3 border-b bg-muted/50 px-4 py-2 text-muted-foreground text-xs">
-        <span>Date</span>
-        <span>Work</span>
-        <span>Person</span>
-        <span>Task</span>
-        <span>Hours</span>
-        <span>Status</span>
-      </div>
-      <div className="divide-y">
-        {entries.map((entry) => (
-          <div
-            className="grid grid-cols-[6rem_1fr_9rem_7rem_6rem_7rem] items-center gap-3 px-4 py-3 text-sm"
-            key={entry.id}
-          >
-            <span className="font-mono text-xs">{entry.date.slice(5)}</span>
-            <div>
-              <p className="font-medium">{projectById(entry.projectId)?.name}</p>
-              <p className="text-muted-foreground text-xs">
-                {clientById(entry.clientId)?.name} / {entry.notes}
-              </p>
-            </div>
-            <span>{memberById(entry.personId)?.name}</span>
-            <span>{taskById(entry.taskId)?.name}</span>
-            <span className="font-mono">{formatHours(entry.hours)}</span>
-            <Badge tone={statusTone(entry.status)}>{entry.status}</Badge>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Metric({
-  detail,
-  icon: Icon,
-  label,
-  value,
-}: {
-  detail: string;
-  icon: typeof Clock3;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-md border bg-background p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-muted-foreground text-sm">{label}</span>
-        <Icon className="size-4 text-primary" />
-      </div>
-      <p className="mt-2 font-semibold text-2xl">{value}</p>
-      <p className="text-muted-foreground text-xs">{detail}</p>
-    </div>
-  );
-}
-
 function PanelHeader({
   action,
   description,
@@ -2174,21 +1440,6 @@ function PanelHeader({
       </div>
       {action}
     </div>
-  );
-}
-
-function Field({
-  children,
-  label,
-}: {
-  children: ReactNode;
-  label: string;
-}) {
-  return (
-    <label className="grid gap-1 text-sm">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      {children}
-    </label>
   );
 }
 
@@ -2212,55 +1463,6 @@ function Select({
   );
 }
 
-function Badge({
-  children,
-  tone,
-}: {
-  children: ReactNode;
-  tone: "amber" | "blue" | "green" | "neutral" | "red";
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex w-fit items-center rounded-sm border px-2 py-0.5 font-medium text-xs capitalize",
-        tone === "amber" && "border-amber-300 bg-amber-50 text-amber-700",
-        tone === "blue" && "border-sky-300 bg-sky-50 text-sky-700",
-        tone === "green" && "border-emerald-300 bg-emerald-50 text-emerald-700",
-        tone === "red" && "border-rose-300 bg-rose-50 text-rose-700",
-        tone === "neutral" && "border-border bg-muted text-muted-foreground"
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Progress({
-  max,
-  tone,
-  value,
-}: {
-  max: number;
-  tone: "amber" | "blue" | "green" | "red";
-  value: number;
-}) {
-  const percentage = Math.min(100, Math.round((value / max) * 100));
-  return (
-    <div className="mt-3 h-2 overflow-hidden rounded-sm bg-muted">
-      <div
-        className={cn(
-          "h-full rounded-sm",
-          tone === "amber" && "bg-amber-500",
-          tone === "blue" && "bg-sky-500",
-          tone === "green" && "bg-emerald-600",
-          tone === "red" && "bg-rose-600"
-        )}
-        style={{ width: `${percentage}%` }}
-      />
-    </div>
-  );
-}
-
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -2280,18 +1482,6 @@ function projectById(id: string) {
 
 function taskById(id: string) {
   return tasks.find((task) => task.id === id);
-}
-
-function memberById(id: string) {
-  return team.find((member) => member.id === id);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    maximumFractionDigits: 0,
-    style: "currency",
-  }).format(value);
 }
 
 function formatDuration(seconds: number) {
@@ -2389,40 +1579,10 @@ function weekDates(date: string) {
 
 function tabTitle(tab: TabId) {
   return {
-    dashboard: "Dashboard",
-    invoices: "Invoices and expenses",
-    projects: "Projects and clients",
-    reports: "Reports",
+    projects: "Projects",
     settings: "Settings",
-    team: "Team management",
     time: "Time tracking",
   }[tab];
-}
-
-function statusTone(status: EntryStatus) {
-  return {
-    approved: "green",
-    draft: "neutral",
-    running: "blue",
-    submitted: "amber",
-  }[status] as "amber" | "blue" | "green" | "neutral";
-}
-
-function healthTone(status: ProjectHealth) {
-  return {
-    healthy: "green",
-    risk: "red",
-    watch: "amber",
-  }[status] as "amber" | "green" | "red";
-}
-
-function invoiceTone(status: InvoiceStatus) {
-  return {
-    draft: "neutral",
-    overdue: "red",
-    paid: "green",
-    sent: "blue",
-  }[status] as "blue" | "green" | "neutral" | "red";
 }
 
 export const Route = createFileRoute("/")({

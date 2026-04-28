@@ -35,7 +35,7 @@ const timerState = {
 };
 
 const timerContext = {
-  billable: true,
+  billable: false,
   notes: "",
   projectName: "No project selected",
   taskName: "Development",
@@ -993,10 +993,6 @@ function updateTray() {
     {
       enabled: false,
       label: `${timerContext.projectName} / ${timerContext.taskName}`,
-    },
-    {
-      enabled: false,
-      label: timerContext.billable ? "Billable" : "Non-billable",
     },
     { type: "separator" },
     {
