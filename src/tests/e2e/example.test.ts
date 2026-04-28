@@ -10,11 +10,6 @@ import {
 } from "@playwright/test";
 import { findLatestBuild, parseElectronApp } from "electron-playwright-helpers";
 
-/*
- * Using Playwright with Electron:
- * https://www.electronjs.org/pt/docs/latest/tutorial/automated-testing#using-playwright
- */
-
 let electronApp: ElectronApplication;
 const userDataDir = mkdtempSync(path.join(tmpdir(), "miru-time-desktop-e2e-"));
 
@@ -29,9 +24,6 @@ async function launchApp() {
     args: [appInfo.main],
   });
   electronApp.on("window", (page) => {
-    const filename = page.url()?.split("/").pop();
-    console.log(`Window opened: ${filename}`);
-
     page.on("pageerror", (error) => {
       console.error(error);
     });
@@ -50,7 +42,7 @@ test.afterAll(async () => {
   rmSync(userDataDir, { force: true, recursive: true });
 });
 
-test("renders the first page", async () => {
+test("renders the app shell", async () => {
   const page: Page = await electronApp.firstWindow();
 
   const title = await page.waitForSelector("h1");
@@ -58,14 +50,18 @@ test("renders the first page", async () => {
   expect(text).toBe("Miru Time Tracking");
 });
 
-test("shows employee time tracking without admin or billing UI", async () => {
+test("starts on onboarding when signed out", async () => {
   const page: Page = await electronApp.firstWindow();
 
-  await page.waitForSelector("text=Miru Time Tracking");
+  await page.waitForSelector("text=Log in to Miru");
 
   const bodyText = await page.locator("body").innerText();
   expect(bodyText).toContain("Employee tracker");
-  expect(bodyText).toContain("Time tracking");
+  expect(bodyText).toContain("Continue with Google");
+  expect(bodyText).toContain("Connect to your workspace before tracking time.");
+  expect(bodyText).not.toContain("Add New Entry");
+  expect(bodyText).not.toContain("Northstar Labs");
+  expect(bodyText).not.toContain("Platform redesign");
   expect(bodyText).not.toMatch(/\bDashboard\b/);
   expect(bodyText).not.toMatch(/\bBillable\b/);
   expect(bodyText).not.toMatch(/\bBilling\b/);
@@ -75,88 +71,19 @@ test("shows employee time tracking without admin or billing UI", async () => {
   expect(bodyText).not.toMatch(/\$[0-9]/);
 });
 
-test("syncs desktop timer with the app timer", async () => {
+test("runs the shared desktop timer behind onboarding", async () => {
   const page: Page = await electronApp.firstWindow();
 
   await page.evaluate(() => window.miruTimer.reset());
   await page.evaluate(() => window.miruTimer.start());
-  await page.waitForFunction(
-    () => document.body.innerText.includes("00:01"),
-    null,
-    { timeout: 3000 }
-  );
+  await page.waitForTimeout(1200);
 
   const state = await page.evaluate(() => window.miruTimer.getState());
 
   await page.evaluate(() => window.miruTimer.reset());
 
   expect(state.running).toBe(true);
-  expect(state.elapsedSeconds).toBeGreaterThanOrEqual(1);
-});
-
-test("adds a time entry through the Harvest-style entry flow", async () => {
-  const page: Page = await electronApp.firstWindow();
-
-  await page.evaluate(() => {
-    window.localStorage.removeItem("pulse-time-entries");
-    window.localStorage.removeItem("pulse-timer");
-  });
-  await page.reload();
-  await page.waitForSelector("text=Miru Time Tracking");
-
-  await expect(page.getByText("Add New Entry")).toBeVisible();
-  await page.getByText("Add New Entry").click();
-  await expect(page.getByText("New Time Entry")).toBeVisible();
-
-  await page.getByPlaceholder("Notes (optional)").fill("Integration spec entry");
-  await page.getByPlaceholder("0:00").fill("1:15");
-  await page.getByRole("button", { name: "Save" }).last().click();
-
-  await expect(page.getByText("Integration spec entry")).toBeVisible();
-  await expect(page.getByText("1:15")).toBeVisible();
-
-  const storedEntries = await page.evaluate(() =>
-    JSON.parse(window.localStorage.getItem("pulse-time-entries") || "[]")
-  );
-  expect(storedEntries[0].notes).toBe("Integration spec entry");
-  expect(storedEntries[0].hours).toBe(1.25);
-});
-
-test("resumes an existing entry into the shared desktop timer", async () => {
-  const page: Page = await electronApp.firstWindow();
-
-  await page.evaluate(() => {
-    window.localStorage.setItem(
-      "pulse-time-entries",
-      JSON.stringify([
-        {
-          id: "resume-entry",
-          billable: true,
-          clientId: "northstar",
-          date: new Date().toISOString().slice(0, 10),
-          hours: 0.5,
-          notes: "Resume me",
-          personId: "vipul",
-          projectId: "northstar-platform",
-          status: "draft",
-          taskId: "development",
-        },
-      ])
-    );
-  });
-  await page.reload();
-  await page.waitForSelector("text=Resume me");
-
-  await page.getByTitle("Resume timer").click();
-  await page.waitForFunction(() => window.miruTimer.getState().then((state) => state.running));
-
-  const timerState = await page.evaluate(() => window.miruTimer.getState());
-  await page.evaluate(() => window.miruTimer.reset());
-
-  expect(timerState.running).toBe(true);
-  expect(timerState.context.notes).toBe("Resume me");
-  expect(timerState.context.projectName).toContain("Northstar Labs");
-  expect(timerState.context.billable).toBe(false);
+  expect(state.elapsedMs).toBeGreaterThanOrEqual(1000);
 });
 
 test("applies idle recovery branches through the desktop timer", async () => {
@@ -164,7 +91,9 @@ test("applies idle recovery branches through the desktop timer", async () => {
 
   await page.evaluate(() => window.miruTimer.reset());
   await page.evaluate(() => window.miruTimer.start());
-  await page.waitForFunction(() => window.miruTimer.getState().then((state) => state.running));
+  await page.waitForFunction(() =>
+    window.miruTimer.getState().then((state) => state.running)
+  );
 
   const idleState = await page.evaluate(() =>
     window.miruTimer.forceIdleForTesting?.(10 * 60 * 1000)
@@ -194,8 +123,8 @@ test("persists timer context across app relaunch", async () => {
     window.miruTimer.setContext({
       billable: false,
       notes: "Persisted timer",
-      projectName: "Northstar Labs / Platform redesign",
-      taskName: "Design",
+      projectName: "Miru / API project",
+      taskName: "Time entry",
     })
   );
   await page.evaluate(() => window.miruTimer.start());

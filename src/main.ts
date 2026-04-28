@@ -83,7 +83,9 @@ const TIMER_CHANNELS = {
 };
 
 const MIRU_API_CHANNELS = {
+  getTimeTracking: "miru-api:get-time-tracking",
   getSession: "miru-api:get-session",
+  googleLogin: "miru-api:google-login",
   login: "miru-api:login",
   logout: "miru-api:logout",
   saveTimerEntry: "miru-api:save-timer-entry",
@@ -226,6 +228,12 @@ function setupTimerIPC() {
 
 function setupMiruApiIPC() {
   ipcMain.handle(MIRU_API_CHANNELS.getSession, () => getMiruSessionSnapshot());
+  ipcMain.handle(MIRU_API_CHANNELS.getTimeTracking, (_event, payload) =>
+    getMiruTimeTracking(payload)
+  );
+  ipcMain.handle(MIRU_API_CHANNELS.googleLogin, (_event, baseUrl) =>
+    openGoogleLogin(baseUrl)
+  );
   ipcMain.handle(MIRU_API_CHANNELS.login, (_event, payload) =>
     loginToMiru(payload)
   );
@@ -471,7 +479,7 @@ async function loginToMiru(payload: {
   const baseUrl = normalizeMiruBaseUrl(payload.baseUrl ?? miruAccount.baseUrl);
   const response = await miruRequest("/users/login", {
     body: {
-      app: "miru-mobile",
+        app: "miru-desktop",
       user: {
         email: payload.email,
         locale: "en",
@@ -548,6 +556,35 @@ async function refreshWorkspaces() {
   void persistAccountState();
 }
 
+async function openGoogleLogin(baseUrl?: string) {
+  const normalizedBaseUrl = normalizeMiruBaseUrl(baseUrl ?? miruAccount.baseUrl);
+  miruAccount.baseUrl = normalizedBaseUrl;
+  await import("electron").then(({ shell }) =>
+    shell.openExternal(`${normalizedBaseUrl}/users/auth/google_oauth2`)
+  );
+  void persistAccountState();
+  return getMiruSessionSnapshot();
+}
+
+async function getMiruTimeTracking(payload: { from?: string; to?: string; userId?: number | string } = {}) {
+  if (!miruAccount.authToken) {
+    throw new Error("Sign in to load Miru projects and time entries.");
+  }
+
+  const params = new URLSearchParams();
+  if (payload.from) {
+    params.set("from", payload.from);
+  }
+  if (payload.to) {
+    params.set("to", payload.to);
+  }
+  if (payload.userId) {
+    params.set("user_id", String(payload.userId));
+  }
+
+  return miruRequest(`/time-tracking${params.toString() ? `?${params}` : ""}`);
+}
+
 async function switchMiruWorkspace(workspaceId: number | string) {
   const response = await miruRequest(`/workspaces/${workspaceId}`, {
     method: "PUT",
@@ -597,14 +634,17 @@ async function syncCurrentTimer(action: "pull" | "push" = "push") {
 }
 
 async function saveTimerEntryToMiru(payload: {
+  duration?: number;
+  note?: string;
   projectId?: number | string;
   userId?: number | string;
+  workDate?: string;
 }) {
   if (!miruAccount.authToken) {
     throw new Error("Sign in to save time to Miru.");
   }
 
-  const duration = Math.floor(currentElapsedMs() / 1000 / 60);
+  const duration = payload.duration ?? Math.floor(currentElapsedMs() / 1000 / 60);
   if (duration < 1) {
     throw new Error("Track at least one minute before saving.");
   }
@@ -615,10 +655,10 @@ async function saveTimerEntryToMiru(payload: {
       body: {
         project_id: payload.projectId,
         timesheet_entry: {
-          bill_status: timerContext.billable ? "unbilled" : "non_billable",
+          bill_status: "non_billable",
           duration,
-          note: timerContext.notes,
-          work_date: new Date().toISOString().slice(0, 10),
+          note: payload.note ?? timerContext.notes,
+          work_date: payload.workDate ?? new Date().toISOString().slice(0, 10),
         },
       },
       method: "POST",

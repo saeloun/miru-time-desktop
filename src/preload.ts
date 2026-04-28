@@ -15,7 +15,9 @@ const TIMER_CHANNELS = {
 };
 
 const MIRU_API_CHANNELS = {
+  getTimeTracking: "miru-api:get-time-tracking",
   getSession: "miru-api:get-session",
+  googleLogin: "miru-api:google-login",
   login: "miru-api:login",
   logout: "miru-api:logout",
   saveTimerEntry: "miru-api:save-timer-entry",
@@ -59,7 +61,11 @@ contextBridge.exposeInMainWorld("miruTimer", {
 });
 
 contextBridge.exposeInMainWorld("miruApi", {
+  getTimeTracking: (payload: unknown) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.getTimeTracking, payload),
   getSession: () => ipcRenderer.invoke(MIRU_API_CHANNELS.getSession),
+  googleLogin: (baseUrl?: string) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.googleLogin, baseUrl),
   login: (payload: unknown) => ipcRenderer.invoke(MIRU_API_CHANNELS.login, payload),
   logout: () => ipcRenderer.invoke(MIRU_API_CHANNELS.logout),
   saveTimerEntry: (payload: unknown) =>

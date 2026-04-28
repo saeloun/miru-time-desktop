@@ -37,7 +37,13 @@ interface MiruSessionState {
 
 interface Window {
   miruApi: {
+    getTimeTracking: (payload?: {
+      from?: string;
+      to?: string;
+      userId?: number | string;
+    }) => Promise<MiruTimeTrackingPayload>;
     getSession: () => Promise<MiruSessionState>;
+    googleLogin: (baseUrl?: string) => Promise<MiruSessionState>;
     login: (payload: {
       baseUrl?: string;
       email: string;
@@ -45,8 +51,11 @@ interface Window {
     }) => Promise<MiruSessionState>;
     logout: () => Promise<MiruSessionState>;
     saveTimerEntry: (payload: {
+      duration?: number;
+      note?: string;
       projectId?: number | string;
       userId?: number | string;
+      workDate?: string;
     }) => Promise<unknown>;
     signup: (payload: {
       baseUrl?: string;
@@ -87,4 +96,33 @@ interface Window {
     start: () => Promise<MiruTimerState>;
     toggle: () => Promise<MiruTimerState>;
   };
+}
+
+interface MiruTimeTrackingPayload {
+  clients: Array<{ id: number | string; name: string }>;
+  entries: Record<
+    string,
+    Array<{
+      bill_status?: string;
+      client?: string;
+      duration: number;
+      id: number | string;
+      note?: string;
+      project?: string;
+      project_id?: number | string;
+      source?: string;
+      type?: string;
+      work_date?: string;
+    }>
+  >;
+  projects: Record<
+    string,
+    Array<{
+      billable?: boolean;
+      client_id: number | string;
+      description?: string;
+      id: number | string;
+      name: string;
+    }>
+  >;
 }

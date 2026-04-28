@@ -88,79 +88,8 @@ interface AuthForm {
 const miruLogoUrl = new URL("../assets/miru-time-icon.svg", import.meta.url)
   .href;
 
-const clients: Client[] = [
-  { id: "northstar", name: "Northstar Labs" },
-  { id: "atlas", name: "Atlas Foods" },
-  { id: "kinetic", name: "Kinetic Finance" },
-];
-
-const projects: Project[] = [
-  {
-    clientId: "northstar",
-    id: "northstar-platform",
-    name: "Platform redesign",
-  },
-  {
-    clientId: "northstar",
-    id: "northstar-support",
-    name: "Retainer support",
-  },
-  {
-    clientId: "atlas",
-    id: "atlas-mobile",
-    name: "Mobile ordering",
-  },
-  {
-    clientId: "kinetic",
-    id: "kinetic-audit",
-    name: "Compliance audit",
-  },
-];
-
 const tasks: Task[] = [
-  { id: "design", name: "Design" },
-  { id: "development", name: "Development" },
-  { id: "qa", name: "QA" },
-  { id: "pm", name: "Project management" },
-];
-
-const seededEntries: TimeEntry[] = [
-  {
-    billable: false,
-    clientId: "northstar",
-    date: "2026-04-27",
-    hours: 6.25,
-    id: "entry-1",
-    notes: "Electron shell and timer layout",
-    personId: "vipul",
-    projectId: "northstar-platform",
-    status: "approved",
-    taskId: "development",
-  },
-  {
-    billable: false,
-    clientId: "atlas",
-    date: "2026-04-26",
-    hours: 7.75,
-    id: "entry-2",
-    notes: "Offline timer persistence",
-    personId: "vipul",
-    projectId: "atlas-mobile",
-    status: "submitted",
-    taskId: "development",
-  },
-  {
-    billable: false,
-    clientId: "northstar",
-    date: "2026-04-24",
-    hours: 3.25,
-    id: "entry-3",
-    notes: "Retainer planning",
-    personId: "vipul",
-    projectId: "northstar-support",
-    status: "draft",
-    taskId: "pm",
-  },
+  { id: "time", name: "Time entry" },
 ];
 
 const todayIso = new Date().toISOString().slice(0, 10);
@@ -171,9 +100,9 @@ const initialTimer: TimerState = {
   idle: null,
   idleThresholdSeconds: 300,
   notes: "",
-  projectId: projects[0].id,
+  projectId: "",
   running: false,
-  taskId: "development",
+  taskId: "time",
 };
 
 function newEntryDraft(date = todayIso): EntryDraft {
@@ -182,16 +111,15 @@ function newEntryDraft(date = todayIso): EntryDraft {
     date,
     hours: "0:00",
     notes: "",
-    projectId: projects[0].id,
-    taskId: "development",
+    projectId: "",
+    taskId: "time",
   };
 }
 
 function HomePage() {
-  const [entries, setEntries] = useState<TimeEntry[]>(() => {
-    const storedEntries = window.localStorage.getItem("pulse-time-entries");
-    return storedEntries ? JSON.parse(storedEntries) : seededEntries;
-  });
+  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [timer, setTimer] = useState<TimerState>(() => {
     const storedTimer = window.localStorage.getItem("pulse-timer");
     const parsedTimer = storedTimer ? JSON.parse(storedTimer) : {};
@@ -257,24 +185,44 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
-    const project = projectById(timer.projectId) ?? projects[0];
+    if (!miruSession?.signedIn) {
+      return;
+    }
+
+    loadTimeTracking()
+      .then(() => setSyncMessage(""))
+      .catch((error) => {
+        setSyncMessage(
+          error instanceof Error ? error.message : "Failed to load Miru data."
+        );
+      });
+  }, [miruSession?.signedIn]);
+
+  useEffect(() => {
+    if (!miruSession?.signedIn || projects.length === 0) {
+      return;
+    }
+
+    const project = projectById(timer.projectId, projects) ?? projects[0];
     const task = taskById(timer.taskId) ?? tasks[0];
 
     window.miruTimer
       .setContext({
         billable: false,
         notes: timer.notes,
-        projectName: `${clientById(project.clientId)?.name} / ${project.name}`,
+        projectName: `${clientById(project.clientId, clients)?.name ?? "Miru"} / ${project.name}`,
         taskName: task.name,
       })
       .then(syncDesktopTimer)
       .catch((error) => {
         console.error("Failed to sync desktop timer context", error);
       });
-  }, [timer.notes, timer.projectId, timer.taskId]);
+  }, [clients, miruSession?.signedIn, projects, timer.notes, timer.projectId, timer.taskId]);
 
-  const selectedProject = projectById(timer.projectId) ?? projects[0];
-  const selectedClient = clientById(selectedProject.clientId) ?? clients[0];
+  const selectedProject = projectById(timer.projectId, projects) ?? projects[0];
+  const selectedClient = selectedProject
+    ? clientById(selectedProject.clientId, clients)
+    : null;
   const selectedTask = taskById(timer.taskId) ?? tasks[0];
   const selectedEntries = useMemo(
     () => entries.filter((entry) => entry.date === selectedDate),
@@ -295,6 +243,58 @@ function HomePage() {
     }));
   }
 
+  async function loadTimeTracking() {
+    const payload = await window.miruApi.getTimeTracking({
+      from: shiftDate(todayIso, -45),
+      to: shiftDate(todayIso, 45),
+    });
+    const nextClients = payload.clients.map((client) => ({
+      id: String(client.id),
+      name: client.name,
+    }));
+    const nextProjects = Object.values(payload.projects)
+      .flat()
+      .map((project) => ({
+        clientId: String(project.client_id),
+        id: String(project.id),
+        name: project.name,
+      }));
+    const nextEntries = Object.entries(payload.entries).flatMap(
+      ([date, dayEntries]) =>
+        (Array.isArray(dayEntries) ? dayEntries : [])
+          .filter((entry) => (entry.type ?? "timesheet") === "timesheet")
+          .map((entry) => {
+            const projectId = String(entry.project_id ?? "");
+            const project = nextProjects.find((item) => item.id === projectId);
+
+            return {
+              billable: entry.bill_status !== "non_billable",
+              clientId: project?.clientId ?? "",
+              date,
+              hours: entry.duration / 60,
+              id: String(entry.id),
+              notes: entry.note ?? "",
+              personId: String(miruSession?.user?.id ?? ""),
+              projectId,
+              status: "draft" as const,
+              taskId: "time",
+            };
+          })
+    );
+
+    setClients(nextClients);
+    setProjects(nextProjects);
+    setEntries(nextEntries);
+    setTimer((current) => ({
+      ...current,
+      projectId:
+        nextProjects.some((project) => project.id === current.projectId)
+          ? current.projectId
+          : nextProjects[0]?.id ?? "",
+      taskId: "time",
+    }));
+  }
+
   function toggleTimer() {
     window.miruTimer.toggle().then(syncDesktopTimer).catch((error) => {
       console.error("Failed to toggle desktop timer", error);
@@ -307,26 +307,20 @@ function HomePage() {
     });
   }
 
-  function saveTimerEntry() {
-    if (timer.elapsedSeconds < 60) {
+  async function saveTimerEntry() {
+    if (timer.elapsedSeconds < 60 || !selectedProject || !miruSession?.signedIn) {
       return;
     }
 
-    setEntries((current) => [
-      {
-        billable: false,
-        clientId: selectedProject.clientId,
-        date: todayIso,
-        hours: roundToQuarter(timer.elapsedSeconds / 3600),
-        id: `entry-${Date.now()}`,
-        notes: timer.notes || "Timer entry",
-        personId: "vipul",
-        projectId: selectedProject.id,
-        status: "draft",
-        taskId: timer.taskId,
-      },
-      ...current,
-    ]);
+    const duration = Math.max(1, Math.round(timer.elapsedSeconds / 60));
+    await window.miruApi.saveTimerEntry({
+      duration,
+      note: timer.notes || "Timer entry",
+      projectId: selectedProject.id,
+      userId: miruSession.user?.id as string | number | undefined,
+      workDate: todayIso,
+    });
+    await loadTimeTracking();
     setSelectedDate(todayIso);
     setTimer((current) => ({ ...current, notes: "" }));
     resetTimer();
@@ -336,7 +330,7 @@ function HomePage() {
     setEntryDraft({
       ...newEntryDraft(date),
       notes: timer.notes,
-      projectId: timer.projectId,
+      projectId: timer.projectId || projects[0]?.id || "",
       taskId: timer.taskId,
     });
     setEntryDialog({ mode: "new" });
@@ -354,11 +348,11 @@ function HomePage() {
     setEntryDialog({ entryId: entry.id, mode: "edit" });
   }
 
-  function saveEntryDraft(startAfterSave = false) {
-    const project = projectById(entryDraft.projectId) ?? projects[0];
+  async function saveEntryDraft(startAfterSave = false) {
+    const project = projectById(entryDraft.projectId, projects) ?? projects[0];
     const hours = parseHoursInput(entryDraft.hours);
 
-    if (hours <= 0 && !startAfterSave) {
+    if (!(project && miruSession?.signedIn) || (hours <= 0 && !startAfterSave)) {
       return;
     }
 
@@ -380,21 +374,14 @@ function HomePage() {
         )
       );
     } else if (hours > 0) {
-      setEntries((current) => [
-        {
-          billable: false,
-          clientId: project.clientId,
-          date: entryDraft.date,
-          hours,
-          id: `entry-${Date.now()}`,
-          notes: entryDraft.notes || "Time entry",
-          personId: "vipul",
-          projectId: project.id,
-          status: "draft",
-          taskId: entryDraft.taskId,
-        },
-        ...current,
-      ]);
+      await window.miruApi.saveTimerEntry({
+        duration: Math.max(1, Math.round(hours * 60)),
+        note: entryDraft.notes || "Time entry",
+        projectId: project.id,
+        userId: miruSession.user?.id as string | number | undefined,
+        workDate: entryDraft.date,
+      });
+      await loadTimeTracking();
     }
 
     setTimer((current) => ({
@@ -498,7 +485,15 @@ function HomePage() {
   async function logoutMiru() {
     const session = await window.miruApi.logout();
     setMiruSession(session);
+    setClients([]);
+    setProjects([]);
+    setEntries([]);
     setSyncMessage("Logged out.");
+  }
+
+  async function openGoogleLogin() {
+    await window.miruApi.googleLogin(authForm.baseUrl);
+    setSyncMessage("Google sign-in opened in your browser. Return here after signing in.");
   }
 
   return (
@@ -540,6 +535,19 @@ function HomePage() {
         </button>
       </header>
 
+      {!miruSession?.signedIn ? (
+        <OnboardingPanel
+          authForm={authForm}
+          authMode={authMode}
+          onAuthFormChange={setAuthForm}
+          onAuthModeChange={setAuthMode}
+          onGoogleLogin={openGoogleLogin}
+          onSubmitAuth={submitMiruAuth}
+          syncMessage={syncMessage}
+        />
+      ) : (
+        <>
+
       <section className="shrink-0 border-b bg-background px-3 py-2">
         <div className="grid grid-cols-[1fr_auto] items-center gap-3">
           <div className="min-w-0">
@@ -558,7 +566,7 @@ function HomePage() {
               {formatDuration(timer.elapsedSeconds)}
             </p>
             <p className="truncate text-muted-foreground text-xs">
-              {selectedClient.name} / {selectedProject.name} / {selectedTask.name}
+              {selectedClient?.name ?? "Miru"} / {selectedProject?.name ?? "Select project"} / {selectedTask.name}
             </p>
           </div>
           <Button
@@ -574,7 +582,7 @@ function HomePage() {
         <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
           <Button
             className="h-8"
-            disabled={timer.elapsedSeconds < 60}
+            disabled={timer.elapsedSeconds < 60 || !selectedProject}
             onClick={saveTimerEntry}
             variant="outline"
           >
@@ -600,7 +608,7 @@ function HomePage() {
               <div className="min-w-0">
                 <p className="text-muted-foreground text-xs">Time tracking</p>
                 <p className="truncate font-semibold text-base">
-                  {selectedClient.name} / {selectedProject.name}
+                  {selectedClient?.name ?? "Miru"} / {selectedProject?.name ?? "Select project"}
                 </p>
                 <p className="truncate text-muted-foreground text-xs">
                   {selectedTask.name}
@@ -624,7 +632,7 @@ function HomePage() {
               >
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
-                    {clientById(project.clientId)?.name} / {project.name}
+                    {clientById(project.clientId, clients)?.name ?? "Miru"} / {project.name}
                   </option>
                 ))}
               </Select>
@@ -749,11 +757,13 @@ function HomePage() {
             <div className="divide-y">
               {selectedEntries.map((entry) => (
                 <TimeEntryRow
+                  clients={clients}
                   entry={entry}
                   key={entry.id}
                   onDelete={deleteEntry}
                   onEdit={openEditEntry}
                   onResume={resumeEntry}
+                  projects={projects}
                 />
               ))}
             </div>
@@ -763,28 +773,160 @@ function HomePage() {
 
       {entryDialog && (
         <EntryEditorDialog
+          clients={clients}
           draft={entryDraft}
           mode={entryDialog.mode}
           onChange={setEntryDraft}
           onClose={() => setEntryDialog(null)}
           onSave={() => saveEntryDraft(false)}
           onStart={() => saveEntryDraft(true)}
+          projects={projects}
         />
+      )}
+        </>
       )}
     </div>
   );
 }
 
+function OnboardingPanel({
+  authForm,
+  authMode,
+  onAuthFormChange,
+  onAuthModeChange,
+  onGoogleLogin,
+  onSubmitAuth,
+  syncMessage,
+}: {
+  authForm: AuthForm;
+  authMode: AuthMode;
+  onAuthFormChange: (form: AuthForm) => void;
+  onAuthModeChange: (mode: AuthMode) => void;
+  onGoogleLogin: () => void;
+  onSubmitAuth: () => void;
+  syncMessage: string;
+}) {
+  return (
+    <main className="grid min-h-0 flex-1 place-items-center p-5">
+      <section className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-sm">
+        <div>
+          <p className="font-semibold text-lg">Log in to Miru</p>
+          <p className="mt-1 text-muted-foreground text-sm">
+            Connect to your workspace before tracking time.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3">
+          <Button
+            className="h-10 w-full"
+            onClick={onGoogleLogin}
+            type="button"
+            variant="outline"
+          >
+            <LogIn />
+            Continue with Google
+          </Button>
+          <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/40 p-1">
+            {(["login", "signup"] as const).map((mode) => (
+              <button
+                className={cn(
+                  "h-8 rounded-sm px-3 text-sm",
+                  authMode === mode
+                    ? "bg-background font-medium shadow-sm"
+                    : "text-muted-foreground"
+                )}
+                key={mode}
+                onClick={() => onAuthModeChange(mode)}
+                type="button"
+              >
+                {mode === "login" ? "Log in" : "Sign up"}
+              </button>
+            ))}
+          </div>
+          <FieldLabel label="Miru URL">
+            <input
+              className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(event) =>
+                onAuthFormChange({ ...authForm, baseUrl: event.target.value })
+              }
+              value={authForm.baseUrl}
+            />
+          </FieldLabel>
+          <FieldLabel label="Email">
+            <input
+              className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(event) =>
+                onAuthFormChange({ ...authForm, email: event.target.value })
+              }
+              type="email"
+              value={authForm.email}
+            />
+          </FieldLabel>
+          {authMode === "signup" && (
+            <div className="grid grid-cols-2 gap-2">
+              <FieldLabel label="First name">
+                <input
+                  className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  onChange={(event) =>
+                    onAuthFormChange({
+                      ...authForm,
+                      firstName: event.target.value,
+                    })
+                  }
+                  value={authForm.firstName}
+                />
+              </FieldLabel>
+              <FieldLabel label="Last name">
+                <input
+                  className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  onChange={(event) =>
+                    onAuthFormChange({
+                      ...authForm,
+                      lastName: event.target.value,
+                    })
+                  }
+                  value={authForm.lastName}
+                />
+              </FieldLabel>
+            </div>
+          )}
+          <FieldLabel label="Password">
+            <input
+              className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(event) =>
+                onAuthFormChange({ ...authForm, password: event.target.value })
+              }
+              type="password"
+              value={authForm.password}
+            />
+          </FieldLabel>
+          <Button className="h-10 w-full" onClick={onSubmitAuth} type="button">
+            {authMode === "login" ? "Log in" : "Create account"}
+          </Button>
+          {syncMessage && (
+            <p className="rounded-md bg-muted px-3 py-2 text-muted-foreground text-xs">
+              {syncMessage}
+            </p>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function TimeEntryRow({
   entry,
+  clients,
   onDelete,
   onEdit,
   onResume,
+  projects,
 }: {
+  clients: Client[];
   entry: TimeEntry;
   onDelete: (entry: TimeEntry) => void;
   onEdit: (entry: TimeEntry) => void;
   onResume: (entry: TimeEntry) => void;
+  projects: Project[];
 }) {
   return (
     <div className="group grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-3">
@@ -792,11 +934,11 @@ function TimeEntryRow({
         <div className="flex min-w-0 items-center gap-2">
           <span className="size-2 rounded-full bg-emerald-500" />
           <p className="truncate font-semibold text-sm">
-            {projectById(entry.projectId)?.name}
+            {projectById(entry.projectId, projects)?.name}
           </p>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground text-xs">
-          {clientById(entry.clientId)?.name} / {taskById(entry.taskId)?.name}
+          {clientById(entry.clientId, clients)?.name} / {taskById(entry.taskId)?.name}
         </p>
         {entry.notes && (
           <p className="mt-1 truncate text-muted-foreground text-xs">
@@ -1020,19 +1162,23 @@ function SyncPanel({
 }
 
 function EntryEditorDialog({
+  clients,
   draft,
   mode,
   onChange,
   onClose,
   onSave,
   onStart,
+  projects,
 }: {
+  clients: Client[];
   draft: EntryDraft;
   mode: "edit" | "new";
   onChange: (draft: EntryDraft) => void;
   onClose: () => void;
   onSave: () => void;
   onStart: () => void;
+  projects: Project[];
 }) {
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
@@ -1072,7 +1218,7 @@ function EntryEditorDialog({
             >
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {clientById(project.clientId)?.name} / {project.name}
+                  {clientById(project.clientId, clients)?.name ?? "Miru"} / {project.name}
                 </option>
               ))}
             </Select>
@@ -1161,12 +1307,12 @@ function Select({
   );
 }
 
-function clientById(id: string) {
-  return clients.find((client) => client.id === id);
+function clientById(id: string, collection: Client[]) {
+  return collection.find((client) => client.id === id);
 }
 
-function projectById(id: string) {
-  return projects.find((project) => project.id === id);
+function projectById(id: string, collection: Project[]) {
+  return collection.find((project) => project.id === id);
 }
 
 function taskById(id: string) {
@@ -1240,6 +1386,12 @@ function dayTitle(date: string) {
   return date === todayIso
     ? "Today"
     : formatter.format(new Date(`${date}T00:00:00`));
+}
+
+function shiftDate(date: string, days: number) {
+  const next = new Date(`${date}T00:00:00`);
+  next.setDate(next.getDate() + days);
+  return next.toISOString().slice(0, 10);
 }
 
 export const Route = createFileRoute("/")({
