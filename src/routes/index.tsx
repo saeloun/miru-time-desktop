@@ -776,7 +776,7 @@ function HomePage() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[14rem_1fr] overflow-hidden rounded-md border bg-background text-foreground">
+    <div className="grid h-full min-h-0 grid-cols-[12.5rem_1fr] overflow-hidden bg-background text-foreground">
       <aside className="flex min-h-0 flex-col border-r bg-sidebar">
         <div className="border-b px-4 py-3">
           <div className="flex items-center gap-2">
@@ -786,7 +786,7 @@ function HomePage() {
               src={miruLogoUrl}
             />
             <div>
-              <h1 className="font-semibold text-sm">Miru Time</h1>
+              <h1 className="font-semibold text-sm">Miru Time Tracking</h1>
               <p className="text-muted-foreground text-xs">Billable work</p>
             </div>
           </div>
@@ -800,7 +800,7 @@ function HomePage() {
                 className={cn(
                   "flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-sm transition",
                   activeTab === tab.id
-                    ? "bg-foreground text-background"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
                 key={tab.id}
@@ -829,7 +829,7 @@ function HomePage() {
       </aside>
 
       <section className="flex min-h-0 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b px-5 py-3">
+        <header className="flex items-center justify-between border-b bg-background/95 px-5 py-3">
           <div>
             <p className="text-muted-foreground text-xs uppercase">
               {clientFilter === "all" ? "All clients" : clientById(clientFilter)?.name}
@@ -855,30 +855,34 @@ function HomePage() {
                 )}
               </button>
             </div>
-            <div className="flex h-8 items-center gap-2 rounded-md border px-2">
-              <Search className="size-3.5 text-muted-foreground" />
-              <input
-                className="w-48 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search work"
-                value={query}
-              />
-            </div>
-            <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-sm">
-              <Filter className="size-3.5 text-muted-foreground" />
-              <select
-                className="bg-transparent outline-none"
-                onChange={(event) => setClientFilter(event.target.value)}
-                value={clientFilter}
-              >
-                <option value="all">All clients</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {activeTab !== "time" && (
+              <>
+                <div className="flex h-8 items-center gap-2 rounded-md border px-2">
+                  <Search className="size-3.5 text-muted-foreground" />
+                  <input
+                    className="w-48 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search work"
+                    value={query}
+                  />
+                </div>
+                <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-sm">
+                  <Filter className="size-3.5 text-muted-foreground" />
+                  <select
+                    className="bg-transparent outline-none"
+                    onChange={(event) => setClientFilter(event.target.value)}
+                    value={clientFilter}
+                  >
+                    <option value="all">All clients</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
             <Button onClick={addManualEntry}>
               <Plus />
               Time
@@ -886,37 +890,39 @@ function HomePage() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-auto bg-muted/30 p-5">
+        <main className="min-h-0 flex-1 overflow-auto bg-muted/30 p-4">
           <div className="grid gap-4">
-            <div className="grid grid-cols-4 gap-3">
-              <Metric
-                icon={Clock3}
-                label="Tracked"
-                value={`${formatHours(metrics.totalHours)}h`}
-                detail={`${formatHours(metrics.billableHours)} billable`}
-              />
-              <Metric
-                icon={CircleDollarSign}
-                label="Billable value"
-                value={formatCurrency(metrics.billableAmount)}
-                detail="Based on project rates"
-              />
-              <Metric
-                icon={Gauge}
-                label="Utilization"
-                value={`${Math.round((metrics.totalHours / 180) * 100)}%`}
-                detail="Team capacity this week"
-              />
-              <Metric
-                icon={ShieldCheck}
-                label="Approvals"
-                value={String(metrics.pendingApprovals)}
-                detail="Timesheets pending"
-              />
-            </div>
+            {activeTab !== "time" && (
+              <>
+                <div className="grid grid-cols-4 gap-3">
+                  <Metric
+                    icon={Clock3}
+                    label="Tracked"
+                    value={`${formatHours(metrics.totalHours)}h`}
+                    detail={`${formatHours(metrics.billableHours)} billable`}
+                  />
+                  <Metric
+                    icon={CircleDollarSign}
+                    label="Billable value"
+                    value={formatCurrency(metrics.billableAmount)}
+                    detail="Based on project rates"
+                  />
+                  <Metric
+                    icon={Gauge}
+                    label="Utilization"
+                    value={`${Math.round((metrics.totalHours / 180) * 100)}%`}
+                    detail="Team capacity this week"
+                  />
+                  <Metric
+                    icon={ShieldCheck}
+                    label="Approvals"
+                    value={String(metrics.pendingApprovals)}
+                    detail="Timesheets pending"
+                  />
+                </div>
 
-            <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
-              <section className="rounded-md border bg-background">
+                <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
+                  <section className="rounded-md border bg-background">
                 <div className="flex items-center justify-between border-b p-4">
                   <div>
                     <h3 className="font-semibold">Timer</h3>
@@ -935,7 +941,7 @@ function HomePage() {
                 </div>
                 <div className="grid gap-3 p-4">
                   {timer.idle && (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                    <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-primary">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-sm">Idle time detected</p>
@@ -1042,7 +1048,7 @@ function HomePage() {
                         className={cn(
                           "h-11 text-sm",
                           timer.running
-                            ? "bg-amber-600 text-white hover:bg-amber-600/90"
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
                             : "bg-primary text-primary-foreground"
                         )}
                         onClick={toggleTimer}
@@ -1120,9 +1126,9 @@ function HomePage() {
                     />
                   </div>
                 </div>
-              </section>
+                  </section>
 
-              <section className="rounded-md border bg-background">
+                  <section className="rounded-md border bg-background">
                 <div className="flex items-center justify-between border-b p-4">
                   <div>
                     <h3 className="font-semibold">Timesheet approvals</h3>
@@ -1159,22 +1165,178 @@ function HomePage() {
                     </div>
                   ))}
                 </div>
-              </section>
-            </div>
+                  </section>
+                </div>
+              </>
+            )}
 
             {activeTab === "dashboard" && (
               <DashboardPanel entries={filteredEntries} />
             )}
             {activeTab === "time" && (
-              <TimePanel
-                entries={filteredEntries}
-                onAddEntry={openNewEntry}
-                onDeleteEntry={deleteEntry}
-                onEditEntry={openEditEntry}
-                onResumeEntry={resumeEntry}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                <section className="rounded-lg border bg-background p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-muted-foreground text-xs">
+                        {timer.running ? "Tracking now" : "Ready"}
+                      </p>
+                      <p className="font-mono font-semibold text-3xl tabular-nums">
+                        {formatDuration(timer.elapsedSeconds)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        className={cn(
+                          "h-10 min-w-28",
+                          timer.running
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "bg-primary text-primary-foreground"
+                        )}
+                        onClick={toggleTimer}
+                      >
+                        {timer.running ? <Pause /> : <Play />}
+                        {timer.running ? "Pause" : "Start"}
+                      </Button>
+                      <Button
+                        disabled={timer.elapsedSeconds < 60}
+                        onClick={saveTimerEntry}
+                        variant="outline"
+                      >
+                        <Square />
+                        Stop
+                      </Button>
+                      <Button
+                        disabled={timer.elapsedSeconds === 0}
+                        onClick={resetTimer}
+                        title="Reset timer"
+                        variant="ghost"
+                      >
+                        <RotateCcw />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] gap-2">
+                    <Select
+                      onChange={(value) => {
+                        const project = projectById(value) ?? projects[0];
+                        setTimer((current) => ({
+                          ...current,
+                          billable: project.billable,
+                          projectId: value,
+                        }));
+                      }}
+                      value={timer.projectId}
+                    >
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {clientById(project.clientId)?.name} / {project.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select
+                      onChange={(value) => {
+                        const task = taskById(value) ?? tasks[0];
+                        setTimer((current) => ({
+                          ...current,
+                          billable: task.defaultBillable,
+                          taskId: value,
+                        }));
+                      }}
+                      value={timer.taskId}
+                    >
+                      {tasks.map((task) => (
+                        <option key={task.id} value={task.id}>
+                          {task.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <input
+                    className="mt-2 h-9 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/30"
+                    onChange={(event) =>
+                      setTimer((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    placeholder="What are you working on?"
+                    value={timer.notes}
+                  />
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        checked={timer.billable}
+                        className="size-4 accent-primary"
+                        onChange={(event) =>
+                          setTimer((current) => ({
+                            ...current,
+                            billable: event.target.checked,
+                          }))
+                        }
+                        type="checkbox"
+                      />
+                      Billable at {formatCurrency(selectedProject.rate)}/hour
+                    </label>
+                    <label className="flex h-8 items-center gap-2 rounded-md border px-2 text-xs">
+                      Idle
+                      <select
+                        className="bg-transparent outline-none"
+                        onChange={(event) =>
+                          changeIdleThreshold(Number(event.target.value))
+                        }
+                        value={timer.idleThresholdSeconds}
+                      >
+                        <option value={60}>1m</option>
+                        <option value={300}>5m</option>
+                        <option value={600}>10m</option>
+                        <option value={900}>15m</option>
+                        <option value={1800}>30m</option>
+                      </select>
+                    </label>
+                  </div>
+                  {timer.idle && (
+                    <div className="mt-3 rounded-md border border-primary/30 bg-primary/10 p-3 text-primary">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm">
+                          Idle time detected: {formatLongDuration(timer.idle.durationMs)}
+                        </p>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            onClick={() => applyIdleAction("remove-continue")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Remove + continue
+                          </Button>
+                          <Button
+                            onClick={() => applyIdleAction("remove-start-new")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Remove + new
+                          </Button>
+                          <Button
+                            onClick={() => applyIdleAction("ignore-continue")}
+                            size="sm"
+                          >
+                            Ignore
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+                <TimePanel
+                  entries={filteredEntries}
+                  onAddEntry={openNewEntry}
+                  onDeleteEntry={deleteEntry}
+                  onEditEntry={openEditEntry}
+                  onResumeEntry={resumeEntry}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                />
+              </>
             )}
             {activeTab === "projects" && <ProjectsPanel />}
             {activeTab === "team" && <TeamPanel />}
@@ -1275,21 +1437,32 @@ function TimePanel({
     .reduce((total, entry) => total + entry.hours, 0);
 
   return (
-    <section className="overflow-hidden rounded-md border bg-[#1f1f1f] text-zinc-100">
-      <div className="flex h-14 items-center justify-between bg-orange-600 px-5">
+    <section className="overflow-hidden rounded-lg border bg-background shadow-sm">
+      <div className="flex h-14 items-center justify-between border-b bg-primary px-4 text-primary-foreground">
         <div className="flex items-center gap-2">
-          <span className="size-3 rounded-full bg-rose-400" />
-          <span className="size-3 rounded-full bg-amber-300" />
-          <span className="size-3 rounded-full bg-green-500" />
+          <img alt="Miru" className="size-7 rounded-md" src={miruLogoUrl} />
+          <span className="font-medium text-sm">Timesheet</span>
         </div>
         <div className="font-semibold text-lg">{dayTitle(selectedDate)}</div>
-        <div className="flex items-center gap-3">
-          <CalendarDays className="size-5" />
-          <Info className="size-5" />
+        <div className="flex items-center gap-2">
+          <button
+            className="flex size-8 items-center justify-center rounded-md hover:bg-white/15"
+            title="Open calendar"
+            type="button"
+          >
+            <CalendarDays className="size-5" />
+          </button>
+          <button
+            className="flex size-8 items-center justify-center rounded-md hover:bg-white/15"
+            title="Timesheet details"
+            type="button"
+          >
+            <Info className="size-5" />
+          </button>
         </div>
       </div>
-      <div className="grid grid-cols-[2rem_repeat(7,1fr)_2rem] items-center border-zinc-800 border-b bg-[#171717] px-2 py-3">
-        <button className="text-zinc-400 hover:text-white" type="button">
+      <div className="grid grid-cols-[2rem_repeat(7,1fr)_2rem] items-center border-b bg-muted/50 px-2 py-3">
+        <button className="text-muted-foreground hover:text-foreground" type="button">
           ‹
         </button>
         {weekDays.map((day) => {
@@ -1300,15 +1473,17 @@ function TimePanel({
 
           return (
             <button
-              className="grid justify-items-center gap-1 text-zinc-400"
+              className="grid justify-items-center gap-1 text-muted-foreground"
               key={day}
               onClick={() => setSelectedDate(day)}
               type="button"
             >
               <span
                 className={cn(
-                  "flex size-11 items-center justify-center rounded-full font-semibold text-xl",
-                  selected && "bg-orange-600 text-white"
+                  "flex size-10 items-center justify-center rounded-full font-semibold text-lg transition",
+                  selected
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "hover:bg-background hover:text-foreground"
                 )}
               >
                 {weekdayShort(day)}
@@ -1316,7 +1491,7 @@ function TimePanel({
               <span
                 className={cn(
                   "font-mono text-sm tabular-nums",
-                  selected ? "text-orange-500" : "text-zinc-500"
+                  selected ? "text-primary" : "text-muted-foreground"
                 )}
               >
                 {formatHours(dayHours)}
@@ -1324,48 +1499,51 @@ function TimePanel({
             </button>
           );
         })}
-        <button className="text-zinc-400 hover:text-white" type="button">
+        <button className="text-muted-foreground hover:text-foreground" type="button">
           ›
         </button>
       </div>
-      <div className="min-h-[21rem] bg-[#242424]">
+      <div className="min-h-[18rem] bg-background">
         {selectedEntries.length === 0 ? (
-          <div className="flex min-h-[21rem] flex-col items-center justify-center px-8 text-center">
-            <p className="max-w-md font-semibold text-xl">
-              Don’t judge each day by the harvest you reap but by the seeds that you plant.
+          <div className="flex min-h-[18rem] flex-col items-center justify-center px-8 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Clock3 className="size-6" />
+            </div>
+            <p className="mt-4 font-semibold text-lg">No time tracked for this day</p>
+            <p className="mt-1 max-w-sm text-muted-foreground text-sm">
+              Add a saved entry or start a timer from the current work bar.
             </p>
-            <p className="mt-1 text-zinc-300">- Robert Louis Stevenson</p>
             <Button
-              className="mt-8 h-10 border-zinc-500 text-zinc-200 hover:bg-zinc-800"
+              className="mt-5 h-10"
               onClick={() => onAddEntry(selectedDate)}
-              variant="outline"
             >
+              <Plus />
               Add New Entry
             </Button>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-800">
+          <div className="divide-y">
             {selectedEntries.map((entry) => (
               <div
-                className="group grid grid-cols-[1fr_auto_auto] items-center gap-4 bg-[#333] px-5 py-4 hover:bg-[#3b3b3b]"
+                className="group grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-4 transition hover:bg-primary/5"
                 key={entry.id}
               >
                 <div>
-                  <p className="font-semibold text-zinc-400">
+                  <p className="font-semibold text-muted-foreground text-sm">
                     {clientById(entry.clientId)?.name}
                   </p>
                   <p className="font-medium text-lg">{projectById(entry.projectId)?.name}</p>
-                  <p className="text-zinc-400">{taskById(entry.taskId)?.name}</p>
+                  <p className="text-muted-foreground">{taskById(entry.taskId)?.name}</p>
                   {entry.notes && (
-                    <p className="mt-1 text-sm text-zinc-500">{entry.notes}</p>
+                    <p className="mt-1 text-muted-foreground text-sm">{entry.notes}</p>
                   )}
                 </div>
-                <div className="font-mono text-3xl tabular-nums text-zinc-100">
+                <div className="font-mono text-3xl tabular-nums">
                   {formatEntryDuration(entry.hours)}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    className="flex size-9 items-center justify-center rounded-full border border-zinc-500 text-zinc-300 hover:border-orange-500 hover:text-orange-500"
+                    className="flex size-9 items-center justify-center rounded-full border text-muted-foreground hover:border-primary hover:text-primary"
                     onClick={() => onResumeEntry(entry)}
                     title="Resume timer"
                     type="button"
@@ -1373,7 +1551,7 @@ function TimePanel({
                     <Play className="size-4" />
                   </button>
                   <button
-                    className="flex size-8 items-center justify-center rounded-md text-zinc-500 opacity-0 hover:bg-zinc-700 hover:text-zinc-100 group-hover:opacity-100"
+                    className="flex size-8 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover:opacity-100"
                     onClick={() => onEditEntry(entry)}
                     title="Edit entry"
                     type="button"
@@ -1381,7 +1559,7 @@ function TimePanel({
                     <Pencil className="size-4" />
                   </button>
                   <button
-                    className="flex size-8 items-center justify-center rounded-md text-zinc-500 opacity-0 hover:bg-zinc-700 hover:text-rose-400 group-hover:opacity-100"
+                    className="flex size-8 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-muted hover:text-rose-600 group-hover:opacity-100"
                     onClick={() => onDeleteEntry(entry)}
                     title="Delete entry"
                     type="button"
@@ -1394,25 +1572,25 @@ function TimePanel({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center border-zinc-800 border-t bg-[#171717] px-5 py-3">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center border-t bg-muted/40 px-5 py-3">
         <div className="flex items-center gap-6">
           <button
-            className="text-zinc-500 hover:text-zinc-100"
+            className="text-muted-foreground hover:text-primary"
             onClick={() => onAddEntry(selectedDate)}
             title="Add entry"
             type="button"
           >
             <Plus className="size-7" />
           </button>
-          <button className="text-zinc-500 hover:text-zinc-100" title="Favorites" type="button">
+          <button className="text-muted-foreground hover:text-primary" title="Favorites" type="button">
             <Star className="size-7" />
           </button>
         </div>
-        <div className="font-mono text-zinc-400 text-sm tabular-nums">
+        <div className="font-mono text-muted-foreground text-sm tabular-nums">
           Week total {formatHours(totalWeekHours)}h
         </div>
         <div className="flex justify-end">
-          <button className="text-zinc-500 hover:text-zinc-100" title="Settings" type="button">
+          <button className="text-muted-foreground hover:text-primary" title="Settings" type="button">
             <Settings className="size-7" />
           </button>
         </div>
@@ -1440,15 +1618,15 @@ function EntryEditorDialog({
   const selectedClient = clientById(selectedProject.clientId);
 
   return (
-    <div className="absolute inset-0 z-50 grid place-items-center bg-black/35">
-      <div className="w-[42rem] overflow-hidden rounded-xl border border-zinc-700 bg-[#252525] text-zinc-100 shadow-2xl">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center border-zinc-800 border-b bg-[#171717] px-4 py-3">
+    <div className="absolute inset-0 z-50 grid place-items-center bg-background/70 backdrop-blur-sm">
+      <div className="w-[42rem] overflow-hidden rounded-xl border bg-background shadow-2xl">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b bg-muted/50 px-4 py-3">
           <div />
           <h3 className="font-semibold text-lg">
             {mode === "edit" ? "Edit Time Entry" : "New Time Entry"}
           </h3>
           <button
-            className="justify-self-end rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+            className="justify-self-end rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={onClose}
             type="button"
           >
@@ -1457,12 +1635,12 @@ function EntryEditorDialog({
         </div>
         <div className="grid gap-4 p-6">
           <div className="grid grid-cols-[2rem_1fr] gap-4">
-            <Star className="mt-8 size-6 text-zinc-500" />
-            <div className="grid gap-3 rounded-md border border-zinc-700 p-4">
+            <Star className="mt-8 size-6 text-muted-foreground" />
+            <div className="grid gap-3 rounded-md border p-4">
               <label className="grid gap-1">
-                <span className="text-zinc-500 text-xs">Project</span>
+                <span className="text-muted-foreground text-xs">Project</span>
                 <select
-                  className="h-10 border-zinc-700 border-b bg-transparent text-lg outline-none"
+                  className="h-10 border-b bg-transparent text-lg outline-none focus:border-primary"
                   onChange={(event) => {
                     const project = projectById(event.target.value) ?? projects[0];
                     onChange({
@@ -1481,9 +1659,9 @@ function EntryEditorDialog({
                 </select>
               </label>
               <label className="grid gap-1">
-                <span className="text-zinc-500 text-xs">Task</span>
+                <span className="text-muted-foreground text-xs">Task</span>
                 <select
-                  className="h-10 bg-transparent text-lg outline-none"
+                  className="h-10 bg-transparent text-lg outline-none focus:text-primary"
                   onChange={(event) => {
                     const task = taskById(event.target.value) ?? tasks[0];
                     onChange({
@@ -1505,26 +1683,26 @@ function EntryEditorDialog({
           </div>
           <div className="grid grid-cols-[1fr_9rem] gap-4 pl-12">
             <input
-              className="h-16 rounded-md border border-zinc-700 bg-transparent px-4 text-lg outline-none placeholder:text-zinc-500 focus:border-orange-500"
+              className="h-16 rounded-md border bg-transparent px-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary"
               onChange={(event) => onChange({ ...draft, notes: event.target.value })}
               placeholder="Notes (optional)"
               value={draft.notes}
             />
             <input
-              className="h-16 rounded-md border border-zinc-700 bg-transparent px-4 text-right font-mono text-3xl outline-none focus:border-orange-500"
+              className="h-16 rounded-md border bg-transparent px-4 text-right font-mono text-3xl outline-none focus:border-primary"
               onChange={(event) => onChange({ ...draft, hours: event.target.value })}
               placeholder="0:00"
               value={draft.hours}
             />
           </div>
           <div className="flex items-center justify-between pl-12">
-            <div className="text-zinc-500 text-sm">
+            <div className="text-muted-foreground text-sm">
               {selectedClient?.name} / {selectedProject.name}
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input
                 checked={draft.billable}
-                className="size-4 accent-orange-600"
+                className="size-4 accent-primary"
                 onChange={(event) =>
                   onChange({ ...draft, billable: event.target.checked })
                 }
@@ -1534,21 +1712,22 @@ function EntryEditorDialog({
             </label>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 bg-[#202020] px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t bg-muted/40 px-6 py-4">
           <Button
-            className="h-10 border-zinc-600 px-5 text-zinc-200 hover:bg-zinc-800"
+            className="h-10 px-5"
             onClick={onClose}
             variant="outline"
           >
             Cancel
           </Button>
           <Button
-            className="h-10 bg-zinc-700 px-5 text-white hover:bg-zinc-600"
+            className="h-10 px-5"
             onClick={onSave}
+            variant="outline"
           >
             Save
           </Button>
-          <Button className="h-10 bg-green-600 px-6 text-white hover:bg-green-600/90" onClick={onStart}>
+          <Button className="h-10 px-6" onClick={onStart}>
             <Play />
             {mode === "edit" ? "Save & resume" : "Start"}
           </Button>

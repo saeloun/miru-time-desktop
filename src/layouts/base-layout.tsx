@@ -8,7 +8,7 @@ export default function BaseLayout({
 }) {
   return (
     <>
-      <DragWindowRegion title="Miru Time Desktop" />
+      <DragWindowRegion title="Miru Time Tracking" />
       <main className="h-[calc(100vh-2rem)] p-2 pt-0">{children}</main>
     </>
   );

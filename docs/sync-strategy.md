@@ -1,6 +1,6 @@
 # Miru Current Timer Sync Strategy
 
-Miru Time Desktop treats the local desktop timer as the source of truth while the app is offline. When a Miru session exists, the desktop app can push or pull the current timer through the API bridge exposed as `window.miruApi`.
+Miru Time Tracking treats the local desktop timer as the source of truth while the app is offline. When a Miru session exists, the desktop app can push or pull the current timer through the API bridge exposed as `window.miruApi`.
 
 ## Electron Boundary
 

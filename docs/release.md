@@ -10,7 +10,7 @@ npm run make
 
 ## Manual Smoke Test
 
-1. Open `out/Miru Time Desktop-darwin-arm64/Miru Time Desktop.app`.
+1. Open `out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app`.
 2. Confirm the Miru icon appears in Finder and the Dock.
 3. Confirm the menu bar timer appears and shows elapsed time.
 4. Start, pause, reset, and resume a timer from the app.

@@ -6,7 +6,7 @@ i18n.use(initReactI18next).init({
   resources: {
     en: {
       translation: {
-        appName: "Miru Time Desktop",
+        appName: "Miru Time Tracking",
         titleHomePage: "Home Page",
         titleSecondPage: "Second Page",
         documentation: "Documentation",
@@ -15,7 +15,7 @@ i18n.use(initReactI18next).init({
     },
     "pt-BR": {
       translation: {
-        appName: "Miru Time Desktop",
+        appName: "Miru Time Tracking",
         titleHomePage: "Página Inicial",
         titleSecondPage: "Segunda Página",
         documentation: "Documentação",

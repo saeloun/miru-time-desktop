@@ -1,4 +1,4 @@
-# Miru Time Desktop
+# Miru Time Tracking
 
 Local-first macOS time tracker for Miru teams. The app is built from [`LuanRoger/electron-shadcn`](https://github.com/LuanRoger/electron-shadcn) with Electron Forge, Vite, React, TypeScript, Tailwind, TanStack Router, Vitest, and Playwright.
 
@@ -34,7 +34,7 @@ The Playwright Electron specs cover the important desktop flows: shared timer sy
 
 ```bash
 npm run package
-open "out/Miru Time Desktop-darwin-arm64/Miru Time Desktop.app"
+open "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
 ```
 
 For a distributable artifact:

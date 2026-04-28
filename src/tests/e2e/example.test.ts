@@ -55,7 +55,7 @@ test("renders the first page", async () => {
 
   const title = await page.waitForSelector("h1");
   const text = await title.textContent();
-  expect(text).toBe("Miru Time");
+  expect(text).toBe("Miru Time Tracking");
 });
 
 test("syncs desktop timer with the app timer", async () => {
@@ -85,7 +85,7 @@ test("adds a time entry through the Harvest-style entry flow", async () => {
     window.localStorage.removeItem("pulse-timer");
   });
   await page.reload();
-  await page.waitForSelector("text=Miru Time");
+  await page.waitForSelector("text=Miru Time Tracking");
 
   await expect(page.getByText("Add New Entry")).toBeVisible();
   await page.getByText("Add New Entry").click();

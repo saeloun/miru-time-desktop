@@ -132,11 +132,11 @@ function createWindow() {
   const basePath = getBasePath();
   const preload = path.join(basePath, "preload.js");
   mainWindow = new BrowserWindow({
-    minHeight: 760,
-    minWidth: 1180,
-    title: "Miru Time Desktop",
-    width: 1320,
-    height: 860,
+    minHeight: 680,
+    minWidth: 760,
+    title: "Miru Time Tracking",
+    width: 920,
+    height: 820,
     webPreferences: {
       devTools: inDevelopment,
       contextIsolation: true,
@@ -282,7 +282,7 @@ function createTray() {
   image.setTemplateImage(true);
 
   tray = new Tray(image);
-  tray.setToolTip("Miru Time Desktop");
+  tray.setToolTip("Miru Time Tracking");
   tray.on("click", () => {
     openMainWindow();
   });
@@ -1043,11 +1043,11 @@ function updateTray() {
     { type: "separator" },
     {
       click: openMainWindow,
-      label: "Open Miru Time",
+      label: "Open Miru Time Tracking",
     },
     {
       click: () => app.quit(),
-      label: "Quit Miru Time",
+      label: "Quit Miru Time Tracking",
     },
   ];
 
