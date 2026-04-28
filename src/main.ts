@@ -302,12 +302,43 @@ function createTray() {
 
   tray = new Tray(createTrayImage(getTimerSnapshot()));
   tray.setToolTip("Miru Time Tracking");
-  tray.on("click", toggleMainWindow);
+  tray.setIgnoreDoubleClickEvents(true);
+  tray.on("click", handleTrayClick);
   tray.on("right-click", showTrayMenu);
 
   ensureTrayInterval();
   updateTray();
   startIdleMonitor();
+}
+
+function handleTrayClick() {
+  if (!tray) {
+    return;
+  }
+
+  const snapshot = getTimerSnapshot();
+  const bounds = tray.getBounds();
+  const cursor = screen.getCursorScreenPoint();
+  const relativeX = cursor.x - bounds.x;
+  const controlWidth = Math.min(28, Math.max(22, bounds.width * 0.32));
+  const stopWidth = snapshot.elapsedMs > 0 ? 22 : 0;
+
+  if (relativeX <= controlWidth) {
+    toggleTrayTimer();
+    return;
+  }
+
+  if (stopWidth > 0 && relativeX >= bounds.width - stopWidth) {
+    if (snapshot.running) {
+      pauseTrayTimer();
+      return;
+    }
+
+    openMainWindow();
+    return;
+  }
+
+  toggleMainWindow();
 }
 
 function toggleMainWindow() {
@@ -1134,6 +1165,7 @@ function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
       <rect x="1" y="2" width="${width - 2}" height="18" rx="9" fill="url(#surface)" filter="url(#soft-shadow)"/>
       <rect x="1.5" y="2.5" width="${width - 3}" height="17" rx="8.5" fill="none" stroke="${palette.border}" stroke-width="1"/>
       ${shimmer}
+      <line x1="24" y1="5.2" x2="24" y2="16.8" stroke="#ffffff" stroke-width="0.8" opacity="0.18"/>
       <circle cx="12" cy="11" r="8.8" fill="${palette.button}" opacity="0.98"/>
       ${activity}
       <g fill="${palette.glyph}">${primaryGlyph}</g>
@@ -1230,6 +1262,7 @@ function getTrayPrimaryGlyph(state: ReturnType<typeof getTrayVisualState>) {
 function getTrayStopGlyph(width: number) {
   return `
     <rect x="${width - 17}" y="6" width="11" height="11" rx="5.5" fill="#000000" opacity="0.18"/>
+    <line x1="${width - 21}" y1="5.2" x2="${width - 21}" y2="16.8" stroke="#ffffff" stroke-width="0.8" opacity="0.18"/>
     <rect x="${width - 13.5}" y="9.2" width="4.6" height="4.6" rx="1" fill="#ffffff" opacity="0.9"/>
   `;
 }
