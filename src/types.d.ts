@@ -3,3 +3,21 @@
 // whether you're running in development or production).
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
+
+interface MiruTimerState {
+  elapsedMs: number;
+  elapsedSeconds: number;
+  formatted: string;
+  running: boolean;
+}
+
+interface Window {
+  miruTimer: {
+    getState: () => Promise<MiruTimerState>;
+    onStateChange: (callback: (state: MiruTimerState) => void) => () => void;
+    pause: () => Promise<MiruTimerState>;
+    reset: () => Promise<MiruTimerState>;
+    start: () => Promise<MiruTimerState>;
+    toggle: () => Promise<MiruTimerState>;
+  };
+}

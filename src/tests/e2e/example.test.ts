@@ -42,3 +42,22 @@ test("renders the first page", async () => {
   const text = await title.textContent();
   expect(text).toBe("Miru Time");
 });
+
+test("syncs desktop timer with the app timer", async () => {
+  const page: Page = await electronApp.firstWindow();
+
+  await page.evaluate(() => window.miruTimer.reset());
+  await page.evaluate(() => window.miruTimer.start());
+  await page.waitForFunction(
+    () => document.body.innerText.includes("00:01"),
+    null,
+    { timeout: 3000 }
+  );
+
+  const state = await page.evaluate(() => window.miruTimer.getState());
+
+  await page.evaluate(() => window.miruTimer.reset());
+
+  expect(state.running).toBe(true);
+  expect(state.elapsedSeconds).toBeGreaterThanOrEqual(1);
+});

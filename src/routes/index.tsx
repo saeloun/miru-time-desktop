@@ -101,8 +101,8 @@ interface TimerState {
   taskId: string;
   notes: string;
   billable: boolean;
-  startedAt: number | null;
   elapsedSeconds: number;
+  running: boolean;
 }
 
 const clients: Client[] = [
@@ -346,19 +346,27 @@ const initialTimer: TimerState = {
   taskId: "development",
   notes: "",
   billable: true,
-  startedAt: null,
   elapsedSeconds: 0,
+  running: false,
 };
 
 function HomePage() {
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [activeTab, setActiveTab] = useState<TabId>("time");
   const [entries, setEntries] = useState<TimeEntry[]>(() => {
     const storedEntries = window.localStorage.getItem("pulse-time-entries");
     return storedEntries ? JSON.parse(storedEntries) : seededEntries;
   });
   const [timer, setTimer] = useState<TimerState>(() => {
     const storedTimer = window.localStorage.getItem("pulse-timer");
-    return storedTimer ? JSON.parse(storedTimer) : initialTimer;
+    const parsedTimer = storedTimer ? JSON.parse(storedTimer) : {};
+
+    return {
+      ...initialTimer,
+      billable: parsedTimer.billable ?? initialTimer.billable,
+      notes: parsedTimer.notes ?? initialTimer.notes,
+      projectId: parsedTimer.projectId ?? initialTimer.projectId,
+      taskId: parsedTimer.taskId ?? initialTimer.taskId,
+    };
   });
   const [clientFilter, setClientFilter] = useState("all");
   const [query, setQuery] = useState("");
@@ -368,30 +376,32 @@ function HomePage() {
   }, [entries]);
 
   useEffect(() => {
-    window.localStorage.setItem("pulse-timer", JSON.stringify(timer));
+    window.localStorage.setItem(
+      "pulse-timer",
+      JSON.stringify({
+        billable: timer.billable,
+        notes: timer.notes,
+        projectId: timer.projectId,
+        taskId: timer.taskId,
+      })
+    );
   }, [timer]);
 
   useEffect(() => {
-    if (!timer.startedAt) {
-      return;
-    }
+    window.miruTimer.getState().then(syncDesktopTimer).catch((error) => {
+      console.error("Failed to load desktop timer state", error);
+    });
 
-    const interval = window.setInterval(() => {
-      setTimer((current) =>
-        current.startedAt
-          ? {
-              ...current,
-              elapsedSeconds:
-                current.elapsedSeconds +
-                Math.floor((Date.now() - current.startedAt) / 1000),
-              startedAt: Date.now(),
-            }
-          : current
-      );
-    }, 1000);
+    return window.miruTimer.onStateChange(syncDesktopTimer);
+  }, []);
 
-    return () => window.clearInterval(interval);
-  }, [timer.startedAt]);
+  function syncDesktopTimer(state: MiruTimerState) {
+    setTimer((current) => ({
+      ...current,
+      elapsedSeconds: state.elapsedSeconds,
+      running: state.running,
+    }));
+  }
 
   const filteredEntries = useMemo(
     () =>
@@ -437,11 +447,9 @@ function HomePage() {
   const elapsedHours = timer.elapsedSeconds / 3600;
 
   function toggleTimer() {
-    setTimer((current) =>
-      current.startedAt
-        ? { ...current, startedAt: null }
-        : { ...current, startedAt: Date.now() }
-    );
+    window.miruTimer.toggle().then(syncDesktopTimer).catch((error) => {
+      console.error("Failed to toggle desktop timer", error);
+    });
   }
 
   function saveTimerEntry() {
@@ -467,7 +475,15 @@ function HomePage() {
       },
       ...current,
     ]);
-    setTimer({ ...initialTimer, projectId: timer.projectId, taskId: timer.taskId });
+    window.miruTimer.reset().then(syncDesktopTimer).catch((error) => {
+      console.error("Failed to reset desktop timer", error);
+    });
+    setTimer((current) => ({
+      ...current,
+      notes: "",
+      projectId: timer.projectId,
+      taskId: timer.taskId,
+    }));
   }
 
   function addManualEntry() {
@@ -565,10 +581,10 @@ function HomePage() {
               <button
                 className="flex size-5 items-center justify-center rounded-sm hover:bg-muted"
                 onClick={toggleTimer}
-                title={timer.startedAt ? "Pause timer" : "Start timer"}
+                title={timer.running ? "Pause timer" : "Start timer"}
                 type="button"
               >
-                {timer.startedAt ? (
+                {timer.running ? (
                   <Pause className="size-3.5" />
                 ) : (
                   <Play className="size-3.5" />
@@ -601,7 +617,7 @@ function HomePage() {
             </label>
             <Button onClick={addManualEntry}>
               <Plus />
-              Entry
+              Time
             </Button>
           </div>
         </header>
@@ -649,7 +665,7 @@ function HomePage() {
                       {formatDuration(timer.elapsedSeconds)}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      {timer.startedAt ? "Running" : "Paused"}
+                      {timer.running ? "Running in menu bar" : "Paused"}
                     </p>
                   </div>
                 </div>
@@ -724,8 +740,8 @@ function HomePage() {
                     </label>
                     <div className="flex items-center gap-2">
                       <Button onClick={toggleTimer} size="lg">
-                        {timer.startedAt ? <Pause /> : <Play />}
-                        {timer.startedAt ? "Pause" : "Start"}
+                        {timer.running ? <Pause /> : <Play />}
+                        {timer.running ? "Pause" : "Start"}
                       </Button>
                       <Button
                         disabled={timer.elapsedSeconds < 60}
@@ -848,31 +864,65 @@ function DashboardPanel({ entries }: { entries: TimeEntry[] }) {
 }
 
 function TimePanel({ entries }: { entries: TimeEntry[] }) {
+  const weekDays = ["2026-04-23", "2026-04-24", "2026-04-25", "2026-04-26", "2026-04-27"];
+  const totalWeekHours = entries.reduce((total, entry) => total + entry.hours, 0);
+  const unsubmittedHours = entries
+    .filter((entry) => entry.status === "draft")
+    .reduce((total, entry) => total + entry.hours, 0);
+
   return (
-    <section className="rounded-md border bg-background">
-      <PanelHeader
-        action={<Button variant="outline"><SquarePen />Edit week</Button>}
-        description={
-          <div className="mt-2 inline-flex rounded-md border bg-muted/40 p-0.5">
-            {["Day", "Week", "Month"].map((view) => (
-              <button
-                className={cn(
-                  "h-7 rounded-sm px-3 font-medium text-xs",
-                  view === "Day"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                key={view}
-                type="button"
-              >
-                {view}
-              </button>
-            ))}
+    <section className="grid gap-4">
+      <div className="rounded-md border bg-background">
+        <PanelHeader
+          action={<Button variant="outline"><SquarePen />Edit week</Button>}
+          description={
+            <div className="mt-2 inline-flex rounded-md border bg-muted/40 p-0.5">
+              {["Day", "Week", "Month"].map((view) => (
+                <button
+                  className={cn(
+                    "h-7 rounded-sm px-3 font-medium text-xs",
+                    view === "Week"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  key={view}
+                  type="button"
+                >
+                  {view}
+                </button>
+              ))}
+            </div>
+          }
+          title="Timesheet"
+        />
+        <div className="grid grid-cols-[1fr_12rem_12rem] gap-3 border-b p-4">
+          <div>
+            <p className="font-medium text-sm">This week</p>
+            <p className="text-muted-foreground text-xs">
+              Add time by project, review daily totals, then submit.
+            </p>
           </div>
-        }
-        title="Timesheet"
-      />
-      <EntryTable entries={entries} />
+          <SummaryItem label="Tracked" value={`${formatHours(totalWeekHours)}h`} />
+          <SummaryItem label="Unsubmitted" value={`${formatHours(unsubmittedHours)}h`} />
+        </div>
+        <div className="grid grid-cols-5 border-b">
+          {weekDays.map((day) => {
+            const dayHours = entries
+              .filter((entry) => entry.date === day)
+              .reduce((total, entry) => total + entry.hours, 0);
+
+            return (
+              <div className="border-r p-3 last:border-r-0" key={day}>
+                <p className="font-medium text-sm">{weekdayLabel(day)}</p>
+                <p className="font-mono text-muted-foreground text-xs tabular-nums">
+                  {formatHours(dayHours)}h logged
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <EntryTable entries={entries} />
+      </div>
     </section>
   );
 }
@@ -1265,6 +1315,13 @@ function formatHours(value: number) {
 
 function roundToQuarter(value: number) {
   return Math.max(0.25, Math.round(value * 4) / 4);
+}
+
+function weekdayLabel(date: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(`${date}T00:00:00`));
 }
 
 function tabTitle(tab: TabId) {

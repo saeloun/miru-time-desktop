@@ -27,6 +27,15 @@ const timerState = {
   startedAt: 0,
 };
 
+const TIMER_CHANNELS = {
+  getState: "miru-timer:get-state",
+  pause: "miru-timer:pause",
+  reset: "miru-timer:reset",
+  start: "miru-timer:start",
+  state: "miru-timer:state",
+  toggle: "miru-timer:toggle",
+};
+
 function createWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.show();
@@ -100,6 +109,14 @@ async function setupORPC() {
   });
 }
 
+function setupTimerIPC() {
+  ipcMain.handle(TIMER_CHANNELS.getState, () => getTimerSnapshot());
+  ipcMain.handle(TIMER_CHANNELS.start, () => startTrayTimer());
+  ipcMain.handle(TIMER_CHANNELS.pause, () => pauseTrayTimer());
+  ipcMain.handle(TIMER_CHANNELS.reset, () => resetTrayTimer());
+  ipcMain.handle(TIMER_CHANNELS.toggle, () => toggleTrayTimer());
+}
+
 function createTray() {
   if (tray) {
     return;
@@ -137,16 +154,15 @@ function openMainWindow() {
 
 function toggleTrayTimer() {
   if (timerState.running) {
-    pauseTrayTimer();
-    return;
+    return pauseTrayTimer();
   }
 
-  startTrayTimer();
+  return startTrayTimer();
 }
 
 function startTrayTimer() {
   if (timerState.running) {
-    return;
+    return getTimerSnapshot();
   }
 
   timerState.running = true;
@@ -156,11 +172,13 @@ function startTrayTimer() {
   if (!trayTimer) {
     trayTimer = setInterval(updateTray, 1000);
   }
+
+  return getTimerSnapshot();
 }
 
 function pauseTrayTimer() {
   if (!timerState.running) {
-    return;
+    return getTimerSnapshot();
   }
 
   timerState.elapsedMs = currentElapsedMs();
@@ -168,6 +186,8 @@ function pauseTrayTimer() {
   timerState.startedAt = 0;
   stopTrayInterval();
   updateTray();
+
+  return getTimerSnapshot();
 }
 
 function resetTrayTimer() {
@@ -176,6 +196,8 @@ function resetTrayTimer() {
   timerState.startedAt = 0;
   stopTrayInterval();
   updateTray();
+
+  return getTimerSnapshot();
 }
 
 function stopTrayInterval() {
@@ -195,26 +217,38 @@ function currentElapsedMs() {
   return timerState.elapsedMs + Date.now() - timerState.startedAt;
 }
 
+function getTimerSnapshot() {
+  const elapsedMs = currentElapsedMs();
+
+  return {
+    elapsedMs,
+    elapsedSeconds: Math.floor(elapsedMs / 1000),
+    formatted: formatTrayDuration(elapsedMs),
+    running: timerState.running,
+  };
+}
+
 function updateTray() {
   if (!tray) {
     return;
   }
 
-  const elapsed = formatTrayDuration(currentElapsedMs());
+  const snapshot = getTimerSnapshot();
+  const elapsed = snapshot.formatted;
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
       enabled: false,
-      label: timerState.running ? `Tracking ${elapsed}` : `Paused at ${elapsed}`,
+      label: snapshot.running ? `Tracking ${elapsed}` : `Paused at ${elapsed}`,
     },
     { type: "separator" },
     {
       accelerator: "CommandOrControl+Shift+Space",
       click: toggleTrayTimer,
-      label: timerState.running ? "Pause Timer" : "Start Timer",
+      label: snapshot.running ? "Pause Timer" : "Start Timer",
     },
     {
       click: resetTrayTimer,
-      enabled: currentElapsedMs() > 0,
+      enabled: snapshot.elapsedMs > 0,
       label: "Reset Timer",
     },
     { type: "separator" },
@@ -230,6 +264,15 @@ function updateTray() {
 
   tray.setTitle(elapsed);
   tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
+  publishTimerState(snapshot);
+}
+
+function publishTimerState(snapshot = getTimerSnapshot()) {
+  if (!(mainWindow && !mainWindow.isDestroyed())) {
+    return;
+  }
+
+  mainWindow.webContents.send(TIMER_CHANNELS.state, snapshot);
 }
 
 function formatTrayDuration(milliseconds: number) {
@@ -247,6 +290,7 @@ function formatTrayDuration(milliseconds: number) {
 
 app.whenReady().then(async () => {
   try {
+    setupTimerIPC();
     createWindow();
     createTray();
     await installExtensions();
