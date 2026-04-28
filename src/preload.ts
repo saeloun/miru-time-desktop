@@ -25,7 +25,9 @@ const MIRU_API_CHANNELS = {
 };
 
 const NATIVE_UI_CHANNELS = {
+  closeWindow: "native-ui:close-window",
   confirmDeleteTimeEntry: "native-ui:confirm-delete-time-entry",
+  minimizeWindow: "native-ui:minimize-window",
   quitApp: "native-ui:quit-app",
 };
 
@@ -71,8 +73,10 @@ contextBridge.exposeInMainWorld("miruApi", {
 });
 
 contextBridge.exposeInMainWorld("nativeDialog", {
+  closeWindow: () => ipcRenderer.invoke(NATIVE_UI_CHANNELS.closeWindow),
   confirmDeleteTimeEntry: () =>
     ipcRenderer.invoke(NATIVE_UI_CHANNELS.confirmDeleteTimeEntry),
+  minimizeWindow: () => ipcRenderer.invoke(NATIVE_UI_CHANNELS.minimizeWindow),
   quitApp: () => ipcRenderer.invoke(NATIVE_UI_CHANNELS.quitApp),
 });
 

@@ -93,7 +93,9 @@ const MIRU_API_CHANNELS = {
 };
 
 const NATIVE_UI_CHANNELS = {
+  closeWindow: "native-ui:close-window",
   confirmDeleteTimeEntry: "native-ui:confirm-delete-time-entry",
+  minimizeWindow: "native-ui:minimize-window",
   quitApp: "native-ui:quit-app",
 };
 
@@ -132,11 +134,12 @@ function createWindow() {
   const basePath = getBasePath();
   const preload = path.join(basePath, "preload.js");
   mainWindow = new BrowserWindow({
-    minHeight: 680,
-    minWidth: 900,
+    frame: false,
+    height: 740,
+    minHeight: 560,
+    minWidth: 390,
     title: "Miru Time Tracking",
-    width: 1080,
-    height: 820,
+    width: 430,
     webPreferences: {
       devTools: inDevelopment,
       contextIsolation: true,
@@ -145,9 +148,6 @@ function createWindow() {
 
       preload,
     },
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
-    trafficLightPosition:
-      process.platform === "darwin" ? { x: 5, y: 5 } : undefined,
   });
   ipcContext.setMainWindow(mainWindow);
 
@@ -245,6 +245,9 @@ function setupMiruApiIPC() {
 }
 
 function setupNativeUiIPC() {
+  ipcMain.handle(NATIVE_UI_CHANNELS.closeWindow, () => {
+    mainWindow?.close();
+  });
   ipcMain.handle(NATIVE_UI_CHANNELS.confirmDeleteTimeEntry, async () => {
     const options: MessageBoxOptions = {
       buttons: ["Delete Entry", "Cancel"],
@@ -260,6 +263,9 @@ function setupNativeUiIPC() {
         : await dialog.showMessageBox(options);
 
     return result.response === 0;
+  });
+  ipcMain.handle(NATIVE_UI_CHANNELS.minimizeWindow, () => {
+    mainWindow?.minimize();
   });
   ipcMain.handle(NATIVE_UI_CHANNELS.quitApp, () => {
     app.quit();
@@ -988,17 +994,30 @@ function updateTray() {
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
       enabled: false,
-      label: snapshot.running ? `Tracking ${elapsed}` : `Paused at ${elapsed}`,
+      label: `Miru Time - ${elapsed}`,
     },
     {
       enabled: false,
-      label: `${timerContext.projectName} / ${timerContext.taskName}`,
+      label: snapshot.running ? "Timer running" : "Timer paused",
+    },
+    {
+      enabled: false,
+      label: `${timerContext.projectName}`,
+    },
+    {
+      enabled: false,
+      label: timerContext.taskName,
     },
     { type: "separator" },
     {
       accelerator: "CommandOrControl+Shift+Space",
       click: toggleTrayTimer,
       label: snapshot.running ? "Pause Timer" : "Start Timer",
+    },
+    {
+      click: pauseTrayTimer,
+      enabled: snapshot.running,
+      label: "Stop Timer",
     },
     {
       click: resetTrayTimer,
@@ -1047,7 +1066,7 @@ function updateTray() {
     },
   ];
 
-  tray.setTitle(elapsed);
+  tray.setTitle(snapshot.running ? `● ${elapsed}` : elapsed);
   tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
   publishTimerState(snapshot);
   scheduleTimerPersist();

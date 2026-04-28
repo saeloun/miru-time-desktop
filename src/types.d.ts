@@ -63,7 +63,9 @@ interface Window {
     ) => Promise<{ session: MiruSessionState; timer: MiruTimerState }>;
   };
   nativeDialog: {
+    closeWindow: () => Promise<void>;
     confirmDeleteTimeEntry: () => Promise<boolean>;
+    minimizeWindow: () => Promise<void>;
     quitApp: () => Promise<void>;
   };
   miruTimer: {
