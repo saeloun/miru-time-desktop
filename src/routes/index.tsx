@@ -557,6 +557,24 @@ function HomePage() {
             <h2 className="font-semibold text-xl">{tabTitle(activeTab)}</h2>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex h-8 items-center gap-2 rounded-md border bg-background px-2">
+              <Clock3 className="size-3.5 text-muted-foreground" />
+              <span className="font-mono text-sm tabular-nums">
+                {formatDuration(timer.elapsedSeconds)}
+              </span>
+              <button
+                className="flex size-5 items-center justify-center rounded-sm hover:bg-muted"
+                onClick={toggleTimer}
+                title={timer.startedAt ? "Pause timer" : "Start timer"}
+                type="button"
+              >
+                {timer.startedAt ? (
+                  <Pause className="size-3.5" />
+                ) : (
+                  <Play className="size-3.5" />
+                )}
+              </button>
+            </div>
             <div className="flex h-8 items-center gap-2 rounded-md border px-2">
               <Search className="size-3.5 text-muted-foreground" />
               <input

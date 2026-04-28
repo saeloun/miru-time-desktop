@@ -7,6 +7,8 @@ Built from [`LuanRoger/electron-shadcn`](https://github.com/LuanRoger/electron-s
 ## Product Surface
 
 - Timer with project, client, task, notes, billable flag, and local persistence.
+- macOS menu bar timer with quick Start/Pause, Reset, Open, and Quit actions.
+- Always-visible in-app timer control in the top bar.
 - Day, week, and month timesheet surface.
 - Clients, projects, budget burn, hourly rates, and project health.
 - Team capacity, submitted hours, and approval workflow.
