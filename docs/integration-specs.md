@@ -6,6 +6,7 @@ The integration suite uses Playwright to launch the packaged Electron runtime in
 
 - App renders the Miru time tracking shell.
 - In-app timer starts and pauses through the shared desktop timer IPC.
+- Native tray title and menu expose timer state plus Miru time summary.
 - Manual time entry can be added from the Harvest-style entry dialog.
 - Existing entry can be resumed into the current desktop timer.
 - Idle recovery supports remove-and-continue, remove-and-start-new, and ignore-and-continue.
@@ -28,4 +29,4 @@ The delete flow uses an Electron native dialog in normal app usage. Automated sp
 
 ## API Sync Scope
 
-The desktop app exposes Miru API IPC methods, but the live web sync contract depends on Miru web adding `GET/PUT /api/v1/desktop/current_timer`. Until that endpoint exists, current timer sync reports local/offline status and the app continues to track locally.
+The desktop app exposes Miru API IPC methods and syncs against Miru web `GET/PUT /api/v1/desktop/current_timer`. If Miru web is unreachable, current timer sync reports local/offline status and the app continues to track locally.

@@ -6,6 +6,7 @@ import {
   BrowserWindow,
   dialog,
   Menu,
+  type MenuItem,
   type MessageBoxOptions,
   type MenuItemConstructorOptions,
   nativeImage,
@@ -46,6 +47,17 @@ const timerContext = {
   taskName: "Development",
 };
 
+const timerSummary = {
+  entryCount: 0,
+  selectedDateLabel: "Today",
+  selectedDateMinutes: 0,
+  syncStatus: "local",
+  todayMinutes: 0,
+  userLabel: "",
+  weekMinutes: 0,
+  workspaceName: "",
+};
+
 const timerSettings = {
   idleThresholdSeconds: 300,
 };
@@ -82,6 +94,7 @@ const TIMER_CHANNELS = {
   reset: "miru-timer:reset",
   setContext: "miru-timer:set-context",
   setIdleThreshold: "miru-timer:set-idle-threshold",
+  setSummary: "miru-timer:set-summary",
   start: "miru-timer:start",
   state: "miru-timer:state",
   toggle: "miru-timer:toggle",
@@ -226,6 +239,10 @@ function setupTimerIPC() {
     updateTimerContext(sanitizeTimerContext(context));
     return getTimerSnapshot();
   });
+  ipcMain.handle(TIMER_CHANNELS.setSummary, (_event, summary) => {
+    updateTimerSummary(sanitizeTimerSummary(summary));
+    return getTimerSnapshot();
+  });
   ipcMain.handle(TIMER_CHANNELS.setIdleThreshold, (_event, seconds: number) => {
     setIdleThreshold(Number(seconds));
     return getTimerSnapshot();
@@ -325,9 +342,21 @@ function exposeE2EDiagnostics() {
     __miruE2E: {
       getTrayBounds: () => tray?.getBounds() ?? null,
       getTrayImageState: () => latestTrayImageState,
+      getTrayMenuLabels: () =>
+        buildTrayMenu(getTimerSnapshot()).items.flatMap(menuItemLabels),
       getTrayTitle: () => tray?.getTitle() ?? "",
     },
   });
+}
+
+function menuItemLabels(item: MenuItem): string[] {
+  const labels = item.label ? [item.label] : [];
+
+  if (!item.submenu) {
+    return labels;
+  }
+
+  return [...labels, ...item.submenu.items.flatMap(menuItemLabels)];
 }
 
 function handleTrayClick() {
@@ -896,6 +925,52 @@ function sanitizeTimerContext(context: unknown) {
   return sanitized;
 }
 
+function sanitizeTimerSummary(summary: unknown) {
+  if (!(summary && typeof summary === "object")) {
+    return {};
+  }
+
+  const input = summary as Record<string, unknown>;
+  const sanitized: Partial<typeof timerSummary> = {};
+
+  if (typeof input.todayMinutes === "number") {
+    sanitized.todayMinutes = Math.max(0, Math.round(input.todayMinutes));
+  }
+
+  if (typeof input.weekMinutes === "number") {
+    sanitized.weekMinutes = Math.max(0, Math.round(input.weekMinutes));
+  }
+
+  if (typeof input.selectedDateMinutes === "number") {
+    sanitized.selectedDateMinutes = Math.max(
+      0,
+      Math.round(input.selectedDateMinutes)
+    );
+  }
+
+  if (typeof input.entryCount === "number") {
+    sanitized.entryCount = Math.max(0, Math.round(input.entryCount));
+  }
+
+  if (typeof input.selectedDateLabel === "string") {
+    sanitized.selectedDateLabel = input.selectedDateLabel.slice(0, 60);
+  }
+
+  if (typeof input.workspaceName === "string") {
+    sanitized.workspaceName = input.workspaceName.slice(0, 120);
+  }
+
+  if (typeof input.userLabel === "string") {
+    sanitized.userLabel = input.userLabel.slice(0, 120);
+  }
+
+  if (typeof input.syncStatus === "string") {
+    sanitized.syncStatus = input.syncStatus.slice(0, 24);
+  }
+
+  return sanitized;
+}
+
 function updateTimerContext(
   context: Partial<typeof timerContext>,
   shouldRefresh = true
@@ -918,6 +993,17 @@ function updateTimerContext(
 
   if (shouldRefresh) {
     updateTray();
+  }
+}
+
+function updateTimerSummary(
+  summary: Partial<typeof timerSummary>,
+  shouldRefresh = true
+) {
+  Object.assign(timerSummary, summary);
+
+  if (shouldRefresh) {
+    updateTray({ persist: false });
   }
 }
 
@@ -1720,13 +1806,132 @@ function getTrayDetailLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
   return "Timer not started";
 }
 
+function getMenuAccountLabel() {
+  const userName =
+    timerSummary.userLabel ||
+    getRecordString(miruAccount.user, ["name"]) ||
+    [
+      getRecordString(miruAccount.user, ["first_name", "firstName"]),
+      getRecordString(miruAccount.user, ["last_name", "lastName"]),
+    ]
+      .filter(Boolean)
+      .join(" ") ||
+    miruAccount.authEmail;
+
+  return `Account: ${userName || "Miru user"}`;
+}
+
+function getMenuWorkspaceName() {
+  const workspace =
+    timerSummary.workspaceName ||
+    miruAccount.workspaces.find(
+      (item) => String(item.id) === String(miruAccount.currentWorkspaceId)
+    )?.name ||
+    getRecordString(miruAccount.company, ["name"]) ||
+    "Miru workspace";
+
+  return `Workspace: ${workspace}`;
+}
+
+function getMenuSyncLabel() {
+  const status = timerSummary.syncStatus || miruAccount.syncStatus;
+  const labels: Record<string, string> = {
+    error: "Error",
+    local: "Local",
+    offline: "Offline",
+    synced: "Synced",
+    syncing: "Syncing",
+  };
+
+  return labels[status] ?? status;
+}
+
+function getRecordString(
+  record: Record<string, unknown> | null,
+  keys: string[]
+) {
+  if (!record) {
+    return "";
+  }
+
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function formatMenuMinutes(minutes: number) {
+  const safeMinutes = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const remainder = safeMinutes % 60;
+
+  if (hours === 0) {
+    return `${remainder}m`;
+  }
+
+  if (remainder === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainder}m`;
+}
+
 function buildTrayMenu(snapshot: ReturnType<typeof getTimerSnapshot>) {
   const statusLabel = getTrayStatusLabel(snapshot);
+  const signedIn = Boolean(miruAccount.authToken && miruAccount.authEmail);
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
       enabled: false,
-      label: `Miru Time - ${statusLabel}`,
+      label: "Miru Time Tracking",
     },
+    {
+      enabled: false,
+      label: statusLabel,
+    },
+    ...(signedIn
+      ? [
+          { type: "separator" as const },
+          {
+            enabled: false,
+            label: getMenuAccountLabel(),
+          },
+          {
+            enabled: false,
+            label: getMenuWorkspaceName(),
+          },
+          {
+            enabled: false,
+            label: `Sync: ${getMenuSyncLabel()}`,
+          },
+        ]
+      : [
+          { type: "separator" as const },
+          {
+            enabled: false,
+            label: "Not signed in",
+          },
+        ]),
+    { type: "separator" },
+    {
+      enabled: false,
+      label: `Today: ${formatMenuMinutes(timerSummary.todayMinutes)}`,
+    },
+    {
+      enabled: false,
+      label: `Week: ${formatMenuMinutes(timerSummary.weekMinutes)}`,
+    },
+    {
+      enabled: false,
+      label: `${timerSummary.selectedDateLabel}: ${formatMenuMinutes(
+        timerSummary.selectedDateMinutes
+      )}`,
+    },
+    { type: "separator" },
     {
       enabled: false,
       label: getTrayDetailLabel(snapshot),
@@ -1786,6 +1991,48 @@ function buildTrayMenu(snapshot: ReturnType<typeof getTimerSnapshot>) {
         type: "radio" as const,
       })),
     },
+    ...(signedIn
+      ? [
+          { type: "separator" as const },
+          ...(miruAccount.workspaces.length > 1
+            ? [
+                {
+                  label: "Switch Workspace",
+                  submenu: miruAccount.workspaces.map((workspace) => ({
+                    checked:
+                      String(workspace.id) ===
+                      String(miruAccount.currentWorkspaceId),
+                    click: () => {
+                      void switchMiruWorkspace(workspace.id).then(() =>
+                        syncCurrentTimer("pull")
+                      );
+                    },
+                    label: workspace.name,
+                    type: "radio" as const,
+                  })),
+                },
+              ]
+            : []),
+          {
+            click: () => {
+              void syncCurrentTimer("pull");
+            },
+            label: "Pull Current Timer from Miru",
+          },
+          {
+            click: () => {
+              void syncCurrentTimer("push");
+            },
+            label: "Push Current Timer to Miru",
+          },
+          {
+            click: () => {
+              void logoutFromMiru().then(() => updateTray({ persist: false }));
+            },
+            label: "Log Out",
+          },
+        ]
+      : []),
     { type: "separator" },
     {
       click: toggleMainWindow,

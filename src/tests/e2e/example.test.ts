@@ -120,11 +120,35 @@ test("keeps the native tray timer title visible", async () => {
         }
       );
     });
+  const trayMenuLabels = () =>
+    electronApp.evaluate(() => {
+      const diagnostics = (
+        globalThis as typeof globalThis & {
+          __miruE2E?: { getTrayMenuLabels: () => string[] };
+        }
+      ).__miruE2E;
+
+      return diagnostics?.getTrayMenuLabels() ?? [];
+    });
 
   await page.evaluate(() => window.miruTimer.reset());
+  await page.evaluate(() =>
+    window.miruTimer.setSummary({
+      entryCount: 3,
+      selectedDateLabel: "Today",
+      selectedDateMinutes: 120,
+      syncStatus: "local",
+      todayMinutes: 120,
+      userLabel: "Miru Employee",
+      weekMinutes: 540,
+      workspaceName: "Saeloun Studio",
+    })
+  );
   await expect.poll(trayTitle).toContain("Start");
   await expect.poll(trayTitle).toContain("--:--");
   await expect.poll(async () => (await trayImageState()).empty).toBe(false);
+  await expect.poll(trayMenuLabels).toContain("Today: 2h");
+  await expect.poll(trayMenuLabels).toContain("Week: 9h");
 
   await page.evaluate(() => window.miruTimer.start());
   await expect.poll(trayTitle).toContain("Pause");

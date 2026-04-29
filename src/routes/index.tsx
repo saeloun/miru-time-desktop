@@ -1,18 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Building2,
   CalendarDays,
   Check,
   Clock3,
+  Cloud,
+  CloudOff,
   LogIn,
+  LogOut,
   Pause,
   Pencil,
   Play,
   Plus,
+  Power,
   RefreshCw,
   RotateCcw,
   Settings,
   Square,
+  TimerReset,
   Trash2,
+  UserRound,
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -75,6 +84,14 @@ interface EntryDialogState {
   mode: "edit" | "new";
 }
 
+interface TimeSummary {
+  entryCount: number;
+  selectedDayHours: number;
+  todayHours: number;
+  weekHours: number;
+  weekRangeLabel: string;
+}
+
 type AuthMode = "login" | "signup";
 
 interface AuthForm {
@@ -117,7 +134,9 @@ function newEntryDraft(date = todayIso): EntryDraft {
 function HomePage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>(() =>
+    readStoredEntries()
+  );
   const [timer, setTimer] = useState<TimerState>(() => {
     const storedTimer = window.localStorage.getItem("pulse-timer");
     const parsedTimer = storedTimer ? JSON.parse(storedTimer) : {};
@@ -240,6 +259,54 @@ function HomePage() {
     (total, entry) => total + entry.hours,
     0
   );
+  const weekRange = useMemo(() => getWeekRange(todayIso), []);
+  const runningTimerHours = timer.elapsedSeconds / 3600;
+  const todaySavedHours = sumEntryHoursForRange(entries, todayIso, todayIso);
+  const weekSavedHours = sumEntryHoursForRange(
+    entries,
+    weekRange.start,
+    weekRange.end
+  );
+  const timeSummary: TimeSummary = {
+    entryCount: entries.length,
+    selectedDayHours:
+      selectedDate === todayIso
+        ? selectedDayHours + runningTimerHours
+        : selectedDayHours,
+    todayHours: todaySavedHours + runningTimerHours,
+    weekHours: weekSavedHours + runningTimerHours,
+    weekRangeLabel: formatWeekRange(weekRange.start, weekRange.end),
+  };
+  const activeWorkspace = getActiveWorkspace(miruSession);
+  const accountLabel = getAccountName(miruSession?.user);
+  const accountEmail = getAccountEmail(miruSession?.user);
+
+  useEffect(() => {
+    window.miruTimer
+      .setSummary({
+        entryCount: timeSummary.entryCount,
+        selectedDateLabel: dayTitle(selectedDate),
+        selectedDateMinutes: Math.round(timeSummary.selectedDayHours * 60),
+        syncStatus: miruSession?.syncStatus ?? "local",
+        todayMinutes: Math.round(timeSummary.todayHours * 60),
+        userLabel: accountLabel || accountEmail,
+        weekMinutes: Math.round(timeSummary.weekHours * 60),
+        workspaceName: activeWorkspace?.name ?? "",
+      })
+      .catch((error) => {
+        console.error("Failed to sync desktop timer summary", error);
+      });
+  }, [
+    accountEmail,
+    accountLabel,
+    activeWorkspace?.name,
+    miruSession?.syncStatus,
+    selectedDate,
+    timeSummary.entryCount,
+    timeSummary.selectedDayHours,
+    timeSummary.todayHours,
+    timeSummary.weekHours,
+  ]);
 
   function syncDesktopTimer(state: MiruTimerState) {
     setTimer((current) => ({
@@ -530,6 +597,21 @@ function HomePage() {
     );
   }
 
+  async function switchWorkspace(workspaceId: string) {
+    setSyncMessage("Switching workspace...");
+
+    try {
+      const session = await window.miruApi.switchWorkspace(workspaceId);
+      setMiruSession(session);
+      await loadTimeTracking();
+      setSyncMessage("Workspace switched.");
+    } catch (error) {
+      setSyncMessage(
+        error instanceof Error ? error.message : "Workspace switch failed."
+      );
+    }
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
       <header className="draglayer grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
@@ -557,7 +639,11 @@ function HomePage() {
           title="Preferences"
           type="button"
         >
-          <Settings className="size-4" />
+          {miruSession?.signedIn ? (
+            <UserRound className="size-4" />
+          ) : (
+            <Settings className="size-4" />
+          )}
         </button>
       </header>
 
@@ -679,6 +765,8 @@ function HomePage() {
           </section>
 
           <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+            <TimeSummaryStrip summary={timeSummary} />
+
             <section className="rounded-lg border bg-background shadow-sm">
               <div className="border-b p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -754,6 +842,7 @@ function HomePage() {
                 onQuit={() => window.nativeDialog.quitApp()}
                 onSubmitAuth={submitMiruAuth}
                 onSyncTimer={syncMiruTimer}
+                onWorkspaceChange={switchWorkspace}
                 syncMessage={syncMessage}
               />
             )}
@@ -1073,6 +1162,49 @@ function IdlePrompt({
   );
 }
 
+function TimeSummaryStrip({ summary }: { summary: TimeSummary }) {
+  const items = [
+    {
+      icon: Clock3,
+      label: "Today",
+      value: formatEntryDuration(summary.todayHours),
+    },
+    {
+      icon: CalendarDays,
+      label: "This week",
+      value: formatEntryDuration(summary.weekHours),
+    },
+    {
+      icon: TimerReset,
+      label: "Entries",
+      value: String(summary.entryCount),
+    },
+  ];
+
+  return (
+    <section className="mb-3 grid grid-cols-3 gap-2">
+      {items.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <div
+            className="min-w-0 rounded-lg border bg-background px-3 py-2 shadow-sm"
+            key={item.label}
+          >
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Icon className="size-3.5 shrink-0 text-primary" />
+              <p className="truncate text-[11px]">{item.label}</p>
+            </div>
+            <p className="mt-1 truncate font-mono font-semibold text-sm tabular-nums">
+              {item.value}
+            </p>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 function SyncPanel({
   authForm,
   authMode,
@@ -1085,6 +1217,7 @@ function SyncPanel({
   onQuit,
   onSubmitAuth,
   onSyncTimer,
+  onWorkspaceChange,
   syncMessage,
 }: {
   authForm: AuthForm;
@@ -1098,8 +1231,122 @@ function SyncPanel({
   onQuit: () => void;
   onSubmitAuth: () => void;
   onSyncTimer: (action: "pull" | "push") => void;
+  onWorkspaceChange: (workspaceId: string) => void;
   syncMessage: string;
 }) {
+  const activeWorkspace = getActiveWorkspace(miruSession);
+  const accountName = getAccountName(miruSession?.user) || "Miru user";
+  const accountEmail = getAccountEmail(miruSession?.user);
+  const status = miruSession?.syncStatus ?? "local";
+  const StatusIcon = status === "offline" || status === "error" ? CloudOff : Cloud;
+
+  if (miruSession?.signedIn) {
+    return (
+      <section className="mt-3 rounded-lg border bg-background p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-sm">
+              {getInitials(accountName || accountEmail || "M")}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-sm">{accountName}</p>
+              <p className="truncate text-muted-foreground text-xs">
+                {accountEmail || "Connected to Miru"}
+              </p>
+            </div>
+          </div>
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
+              status === "synced"
+                ? "bg-emerald-50 text-emerald-700"
+                : status === "syncing"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground"
+            )}
+          >
+            <StatusIcon className="size-3" />
+            {formatSyncStatus(status)}
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-3 rounded-md border bg-muted/30 p-3">
+          <div className="flex items-start gap-2">
+            <Building2 className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-xs text-muted-foreground">
+                Workspace
+              </p>
+              {miruSession.workspaces.length > 1 ? (
+                <select
+                  className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  onChange={(event) => onWorkspaceChange(event.target.value)}
+                  value={String(
+                    miruSession.currentWorkspaceId ?? activeWorkspace?.id ?? ""
+                  )}
+                >
+                  {miruSession.workspaces.map((workspace) => (
+                    <option key={workspace.id} value={String(workspace.id)}>
+                      {workspace.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="mt-0.5 truncate font-semibold text-sm">
+                  {activeWorkspace?.name ?? "Miru workspace"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => onSyncTimer("pull")} variant="outline">
+              <ArrowDownToLine />
+              Pull timer
+            </Button>
+            <Button onClick={() => onSyncTimer("push")} variant="outline">
+              <ArrowUpFromLine />
+              Push timer
+            </Button>
+          </div>
+
+          <FieldLabel label="Idle prompt">
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(event) =>
+                onIdleThresholdChange(Number(event.target.value))
+              }
+              value={idleThresholdSeconds}
+            >
+              <option value={60}>After 1 min</option>
+              <option value={300}>After 5 min</option>
+              <option value={600}>After 10 min</option>
+              <option value={900}>After 15 min</option>
+              <option value={1800}>After 30 min</option>
+            </select>
+          </FieldLabel>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Button onClick={onLogout} variant="outline">
+            <LogOut />
+            Log out
+          </Button>
+          <Button onClick={onQuit} variant="ghost">
+            <Power />
+            Quit
+          </Button>
+        </div>
+
+        {syncMessage && (
+          <p className="mt-3 rounded-md bg-muted px-3 py-2 text-muted-foreground text-xs">
+            {syncMessage}
+          </p>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="mt-3 rounded-lg border bg-background p-3 shadow-sm">
       <div className="flex items-center justify-between">
@@ -1195,29 +1442,6 @@ function SyncPanel({
             Log out
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Button onClick={() => onSyncTimer("push")} variant="outline">
-            Push timer
-          </Button>
-          <Button onClick={() => onSyncTimer("pull")} variant="outline">
-            Pull timer
-          </Button>
-        </div>
-        <FieldLabel label="Idle prompt">
-          <select
-            className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            onChange={(event) =>
-              onIdleThresholdChange(Number(event.target.value))
-            }
-            value={idleThresholdSeconds}
-          >
-            <option value={60}>After 1 min</option>
-            <option value={300}>After 5 min</option>
-            <option value={600}>After 10 min</option>
-            <option value={900}>After 15 min</option>
-            <option value={1800}>After 30 min</option>
-          </select>
-        </FieldLabel>
         <Button onClick={onQuit} variant="ghost">
           Quit app
         </Button>
@@ -1378,6 +1602,21 @@ function Select({
   );
 }
 
+function readStoredEntries() {
+  const storedEntries = window.localStorage.getItem("pulse-time-entries");
+
+  if (!storedEntries) {
+    return [];
+  }
+
+  try {
+    const parsedEntries = JSON.parse(storedEntries);
+    return Array.isArray(parsedEntries) ? (parsedEntries as TimeEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function clientById(id: string, collection: Client[]) {
   return collection.find((client) => client.id === id);
 }
@@ -1388,6 +1627,96 @@ function projectById(id: string, collection: Project[]) {
 
 function taskById(id: string) {
   return tasks.find((task) => task.id === id);
+}
+
+function sumEntryHoursForRange(entries: TimeEntry[], from: string, to: string) {
+  return entries
+    .filter((entry) => entry.date >= from && entry.date <= to)
+    .reduce((total, entry) => total + entry.hours, 0);
+}
+
+function getWeekRange(date: string) {
+  const current = new Date(`${date}T00:00:00`);
+  const day = current.getDay();
+  const start = new Date(current);
+  start.setDate(current.getDate() - day);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    end: end.toISOString().slice(0, 10),
+    start: start.toISOString().slice(0, 10),
+  };
+}
+
+function formatWeekRange(from: string, to: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  });
+
+  return `${formatter.format(new Date(`${from}T00:00:00`))} - ${formatter.format(new Date(`${to}T00:00:00`))}`;
+}
+
+function getActiveWorkspace(session: MiruSessionState | null) {
+  if (!session?.workspaces.length) {
+    return null;
+  }
+
+  return (
+    session.workspaces.find(
+      (workspace) => String(workspace.id) === String(session.currentWorkspaceId)
+    ) ?? session.workspaces[0]
+  );
+}
+
+function getAccountName(user: Record<string, unknown> | null | undefined) {
+  if (!user) {
+    return "";
+  }
+
+  const name =
+    getStringValue(user, "name") ||
+    [getStringValue(user, "first_name"), getStringValue(user, "last_name")]
+      .filter(Boolean)
+      .join(" ") ||
+    [getStringValue(user, "firstName"), getStringValue(user, "lastName")]
+      .filter(Boolean)
+      .join(" ");
+
+  return name.trim();
+}
+
+function getAccountEmail(user: Record<string, unknown> | null | undefined) {
+  return user ? getStringValue(user, "email") : "";
+}
+
+function getStringValue(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getInitials(value: string) {
+  return (
+    value
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "M"
+  );
+}
+
+function formatSyncStatus(status: MiruSessionState["syncStatus"]) {
+  const labels: Record<MiruSessionState["syncStatus"], string> = {
+    error: "Error",
+    local: "Local",
+    offline: "Offline",
+    synced: "Synced",
+    syncing: "Syncing",
+  };
+
+  return labels[status];
 }
 
 function formatDuration(seconds: number) {

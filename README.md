@@ -5,6 +5,7 @@ Local-first macOS time tracker for Miru teams. The app is built from [`LuanRoger
 ## What Ships
 
 - Native macOS menu bar timer with elapsed time, Start/Pause, Reset, idle recovery, and Quit actions.
+- Native tray menu with account, workspace, sync status, and Miru time summary.
 - In-app timer synchronized with the desktop timer through Electron IPC.
 - Harvest-style time entry screen for adding, editing, deleting, and resuming entries.
 - Local storage for entries and timer context, plus persisted desktop timer state under Electron `userData`.

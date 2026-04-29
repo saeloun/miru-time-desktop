@@ -9,6 +9,7 @@ const TIMER_CHANNELS = {
   reset: "miru-timer:reset",
   setContext: "miru-timer:set-context",
   setIdleThreshold: "miru-timer:set-idle-threshold",
+  setSummary: "miru-timer:set-summary",
   start: "miru-timer:start",
   state: "miru-timer:state",
   toggle: "miru-timer:toggle",
@@ -56,6 +57,8 @@ contextBridge.exposeInMainWorld("miruTimer", {
     ipcRenderer.invoke(TIMER_CHANNELS.setContext, context),
   setIdleThreshold: (seconds: number) =>
     ipcRenderer.invoke(TIMER_CHANNELS.setIdleThreshold, seconds),
+  setSummary: (summary: unknown) =>
+    ipcRenderer.invoke(TIMER_CHANNELS.setSummary, summary),
   start: () => ipcRenderer.invoke(TIMER_CHANNELS.start),
   toggle: () => ipcRenderer.invoke(TIMER_CHANNELS.toggle),
 });

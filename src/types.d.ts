@@ -93,6 +93,16 @@ interface Window {
       taskName: string;
     }) => Promise<MiruTimerState>;
     setIdleThreshold: (seconds: number) => Promise<MiruTimerState>;
+    setSummary: (summary: {
+      entryCount: number;
+      selectedDateLabel: string;
+      selectedDateMinutes: number;
+      syncStatus: MiruSessionState["syncStatus"];
+      todayMinutes: number;
+      userLabel: string;
+      weekMinutes: number;
+      workspaceName: string;
+    }) => Promise<MiruTimerState>;
     start: () => Promise<MiruTimerState>;
     toggle: () => Promise<MiruTimerState>;
   };

@@ -22,7 +22,7 @@ Main process responsibilities:
 
 ## API Contract
 
-The desktop app expects Miru web to provide:
+Miru web provides:
 
 ```http
 GET /api/v1/desktop/current_timer
@@ -67,4 +67,4 @@ PUT /api/v1/desktop/current_timer
 - Pull on login, workspace switch, or explicit refresh.
 - If both sides changed while offline, keep the active running timer and preserve the other side as a draft time entry candidate.
 
-The current implementation exposes the bridge and local strategy. Miru web still needs the `desktop/current_timer` endpoint for live cross-device sync.
+The desktop app exposes the bridge, local-first fallback, and native tray controls. Miru web owns the `desktop/current_timer` endpoint so the active timer can move between the web app and the macOS tracker.
