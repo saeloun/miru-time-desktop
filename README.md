@@ -17,9 +17,10 @@ Miru Time Tracking is MIT-licensed software.
   <img src="docs/assets/screenshots/timer-running.png" alt="Miru Time Tracking running timer" width="260">
   <img src="docs/assets/screenshots/account-settings.png" alt="Miru Time Tracking account and settings popover" width="260">
   <img src="docs/assets/screenshots/idle-recovery.png" alt="Miru Time Tracking idle recovery modal" width="260">
+  <img src="docs/assets/screenshots/profile-avatar.png" alt="Miru Time Tracking profile avatar in the timer window" width="260">
 </p>
 
-These screenshots are generated from the packaged Electron app flow used by the integration specs: signed-in timer, account/sync menu, and idle recovery.
+These screenshots are generated from the packaged Electron app flow used by the integration specs: signed-in timer, account/sync menu, idle recovery, and a sanitized profile-avatar preview. The avatar preview uses generic local work data and does not expose email, tokens, workspace, client, project, or entry details.
 
 ## Downloads
 
