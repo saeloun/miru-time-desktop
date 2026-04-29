@@ -1,5 +1,5 @@
-import path from "node:path";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { deflateSync } from "node:zlib";
 import {
   app,
@@ -7,8 +7,8 @@ import {
   dialog,
   Menu,
   type MenuItem,
-  type MessageBoxOptions,
   type MenuItemConstructorOptions,
+  type MessageBoxOptions,
   nativeImage,
   powerMonitor,
   screen,
@@ -21,7 +21,13 @@ import {
 } from "electron-devtools-installer";
 import { UpdateSourceType, updateElectronApp } from "update-electron-app";
 import { ipcContext } from "@/ipc/context";
-import { IPC_CHANNELS, inDevelopment } from "./constants";
+import {
+  canOverrideMiruBaseUrl,
+  DEFAULT_MIRU_BASE_URL,
+  IPC_CHANNELS,
+  inDevelopment,
+  normalizeMiruBaseUrlValue,
+} from "./constants";
 import { getBasePath } from "./utils/path";
 
 let mainWindow: BrowserWindow | null = null;
@@ -73,7 +79,7 @@ const IDLE_THRESHOLDS = [
 const miruAccount = {
   authEmail: "",
   authToken: "",
-  baseUrl: "http://127.0.0.1:3000",
+  baseUrl: DEFAULT_MIRU_BASE_URL,
   company: null as Record<string, unknown> | null,
   companyRole: "",
   currentWorkspaceId: null as number | string | null,
@@ -101,6 +107,7 @@ const TIMER_CHANNELS = {
 };
 
 const MIRU_API_CHANNELS = {
+  deleteTimerEntry: "miru-api:delete-timer-entry",
   getTimeTracking: "miru-api:get-time-tracking",
   getSession: "miru-api:get-session",
   googleLogin: "miru-api:google-login",
@@ -110,6 +117,7 @@ const MIRU_API_CHANNELS = {
   signup: "miru-api:signup",
   syncCurrentTimer: "miru-api:sync-current-timer",
   switchWorkspace: "miru-api:switch-workspace",
+  updateTimerEntry: "miru-api:update-timer-entry",
 };
 
 const NATIVE_UI_CHANNELS = {
@@ -263,6 +271,9 @@ function setupTimerIPC() {
 }
 
 function setupMiruApiIPC() {
+  ipcMain.handle(MIRU_API_CHANNELS.deleteTimerEntry, (_event, entryId) =>
+    deleteTimerEntryFromMiru(entryId)
+  );
   ipcMain.handle(MIRU_API_CHANNELS.getSession, () => getMiruSessionSnapshot());
   ipcMain.handle(MIRU_API_CHANNELS.getTimeTracking, (_event, payload) =>
     getMiruTimeTracking(payload)
@@ -279,6 +290,9 @@ function setupMiruApiIPC() {
   ipcMain.handle(MIRU_API_CHANNELS.logout, () => logoutFromMiru());
   ipcMain.handle(MIRU_API_CHANNELS.switchWorkspace, (_event, workspaceId) =>
     switchMiruWorkspace(workspaceId)
+  );
+  ipcMain.handle(MIRU_API_CHANNELS.updateTimerEntry, (_event, payload) =>
+    updateTimerEntryInMiru(payload)
   );
   ipcMain.handle(MIRU_API_CHANNELS.syncCurrentTimer, (_event, action) =>
     syncCurrentTimer(action)
@@ -452,6 +466,14 @@ function accountStorePath() {
   return path.join(app.getPath("userData"), "miru-account.json");
 }
 
+function hasNodeErrorCode(error: unknown, code: string) {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as { code?: unknown }).code === code
+  );
+}
+
 async function loadTimerState() {
   const filePath = timerStorePath();
 
@@ -473,8 +495,8 @@ async function loadTimerState() {
     if (stored.idleThresholdSeconds) {
       timerSettings.idleThresholdSeconds = stored.idleThresholdSeconds;
     }
-  } catch (error: any) {
-    if (error?.code === "ENOENT") {
+  } catch (error: unknown) {
+    if (hasNodeErrorCode(error, "ENOENT")) {
       return;
     }
 
@@ -501,8 +523,8 @@ async function loadAccountState() {
     miruAccount.user = stored.user ?? null;
     miruAccount.workspaces = stored.workspaces ?? [];
     miruAccount.syncStatus = miruAccount.authToken ? "offline" : "local";
-  } catch (error: any) {
-    if (error?.code === "ENOENT") {
+  } catch (error: unknown) {
+    if (hasNodeErrorCode(error, "ENOENT")) {
       return;
     }
 
@@ -551,8 +573,67 @@ async function writeJsonFileAtomically(filePath: string, data: unknown) {
 }
 
 function normalizeMiruBaseUrl(value: string) {
-  const trimmed = value.trim().replace(/\/+$/, "");
-  return trimmed || "http://127.0.0.1:3000";
+  if (!canOverrideMiruBaseUrl) {
+    return DEFAULT_MIRU_BASE_URL;
+  }
+
+  const trimmed = normalizeMiruBaseUrlValue(value);
+  return trimmed || DEFAULT_MIRU_BASE_URL;
+}
+
+function persistAccountStateInBackground() {
+  persistAccountState().catch((error) => {
+    console.error("Failed to persist Miru account state", error);
+  });
+}
+
+function persistTimerStateInBackground() {
+  persistTimerState().catch((error) => {
+    console.error("Failed to persist timer state", error);
+  });
+}
+
+function getRecord(value: unknown) {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getNullableRecord(value: unknown) {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getStringField(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getIdField(source: Record<string, unknown> | null, key: string) {
+  if (!source) {
+    return null;
+  }
+
+  const value = source[key];
+  return typeof value === "number" || typeof value === "string" ? value : null;
+}
+
+function getNumberField(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "number") {
+      return value;
+    }
+    if (typeof value === "string") {
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue)) {
+        return numericValue;
+      }
+    }
+  }
+
+  return 0;
 }
 
 function getMiruSessionSnapshot() {
@@ -570,24 +651,38 @@ function getMiruSessionSnapshot() {
   };
 }
 
-function setMiruAccountFromAuth(data: Record<string, any>, baseUrl: string) {
-  const user = data.user ?? {};
-  const token = user.token ?? data.auth_token ?? data.token ?? "";
+function setMiruAccountFromAuth(
+  data: Record<string, unknown>,
+  baseUrl: string
+) {
+  const user = {
+    ...getRecord(data.user),
+    avatar_url:
+      getStringField(getRecord(data.user), "avatar_url") ||
+      getStringField(data, "avatar_url"),
+  };
+  const company = getNullableRecord(data.company);
+  const token =
+    getStringField(user, "token") ||
+    getStringField(data, "auth_token") ||
+    getStringField(data, "token");
 
-  miruAccount.authEmail = user.email ?? miruAccount.authEmail;
+  miruAccount.authEmail =
+    getStringField(user, "email") || miruAccount.authEmail;
   miruAccount.authToken = token;
   miruAccount.baseUrl = normalizeMiruBaseUrl(baseUrl);
-  miruAccount.company = data.company ?? null;
-  miruAccount.companyRole = data.company_role ?? data.companyRole ?? "";
+  miruAccount.company = company;
+  miruAccount.companyRole =
+    getStringField(data, "company_role") || getStringField(data, "companyRole");
   miruAccount.currentWorkspaceId =
-    user.current_workspace_id ??
-    user.currentWorkspaceId ??
-    data.company?.id ??
+    getIdField(user, "current_workspace_id") ??
+    getIdField(user, "currentWorkspaceId") ??
+    getIdField(company, "id") ??
     null;
   miruAccount.user = user;
   miruAccount.syncStatus = token ? "synced" : "error";
   miruAccount.syncError = token ? "" : "Miru did not return an API token.";
-  void persistAccountState();
+  persistAccountStateInBackground();
 
   return getMiruSessionSnapshot();
 }
@@ -646,9 +741,25 @@ async function signupToMiru(payload: {
     baseUrl
   );
 
-  const session = setMiruAccountFromAuth(response, baseUrl);
-  await refreshWorkspaces();
-  return { ...session, workspaces: miruAccount.workspaces };
+  const token =
+    getStringField(getRecord(response.user), "token") ||
+    getStringField(response, "auth_token") ||
+    getStringField(response, "token");
+
+  if (token) {
+    const session = setMiruAccountFromAuth(response, baseUrl);
+    await refreshWorkspaces();
+    return { ...session, workspaces: miruAccount.workspaces };
+  }
+
+  miruAccount.baseUrl = baseUrl;
+  miruAccount.syncStatus = "local";
+  miruAccount.syncError =
+    getStringField(response, "notice") ||
+    "Account created. Confirm your email, then log in.";
+  persistAccountStateInBackground();
+
+  return getMiruSessionSnapshot();
 }
 
 async function logoutFromMiru() {
@@ -670,7 +781,7 @@ async function logoutFromMiru() {
   miruAccount.syncStatus = "local";
   miruAccount.user = null;
   miruAccount.workspaces = [];
-  void persistAccountState();
+  persistAccountStateInBackground();
 
   return getMiruSessionSnapshot();
 }
@@ -682,7 +793,7 @@ async function refreshWorkspaces() {
 
   const response = await miruRequest("/workspaces");
   miruAccount.workspaces = response.workspaces ?? [];
-  void persistAccountState();
+  persistAccountStateInBackground();
 }
 
 async function openGoogleLogin(baseUrl?: string) {
@@ -693,11 +804,11 @@ async function openGoogleLogin(baseUrl?: string) {
   await import("electron").then(({ shell }) =>
     shell.openExternal(`${normalizedBaseUrl}/users/auth/google_oauth2`)
   );
-  void persistAccountState();
+  persistAccountStateInBackground();
   return getMiruSessionSnapshot();
 }
 
-async function getMiruTimeTracking(
+function getMiruTimeTracking(
   payload: { from?: string; to?: string; userId?: number | string } = {}
 ) {
   if (!miruAccount.authToken) {
@@ -725,7 +836,7 @@ async function switchMiruWorkspace(workspaceId: number | string) {
   miruAccount.currentWorkspaceId = workspaceId;
   miruAccount.company = response.company ?? miruAccount.company;
   await refreshWorkspaces();
-  void persistAccountState();
+  persistAccountStateInBackground();
 
   return getMiruSessionSnapshot();
 }
@@ -761,7 +872,7 @@ async function syncCurrentTimer(action: "pull" | "push" = "push") {
       error instanceof Error ? error.message : "Current timer sync failed.";
   }
 
-  void persistAccountState();
+  persistAccountStateInBackground();
   updateTray();
   return { session: getMiruSessionSnapshot(), timer: getTimerSnapshot() };
 }
@@ -805,6 +916,49 @@ async function saveTimerEntryToMiru(payload: {
   return response;
 }
 
+function updateTimerEntryInMiru(payload: {
+  duration?: number;
+  entryId?: number | string;
+  note?: string;
+  projectId?: number | string;
+  workDate?: string;
+}) {
+  if (!miruAccount.authToken) {
+    throw new Error("Sign in to update Miru time entries.");
+  }
+
+  if (!payload.entryId) {
+    throw new Error("Select an entry before updating it.");
+  }
+
+  return miruRequest(`/timesheet_entry/${payload.entryId}`, {
+    body: {
+      project_id: payload.projectId,
+      timesheet_entry: {
+        bill_status: "non_billable",
+        duration: payload.duration,
+        note: payload.note ?? "",
+        work_date: payload.workDate,
+      },
+    },
+    method: "PUT",
+  });
+}
+
+function deleteTimerEntryFromMiru(entryId: number | string) {
+  if (!miruAccount.authToken) {
+    throw new Error("Sign in to delete Miru time entries.");
+  }
+
+  if (!entryId) {
+    throw new Error("Select an entry before deleting it.");
+  }
+
+  return miruRequest(`/timesheet_entry/${entryId}`, {
+    method: "DELETE",
+  });
+}
+
 function buildRemoteTimerPayload() {
   return {
     billable: timerContext.billable,
@@ -819,24 +973,47 @@ function buildRemoteTimerPayload() {
   };
 }
 
-function applyRemoteTimer(timer: any) {
+function applyRemoteTimer(timer: unknown) {
   if (!timer) {
     return;
   }
 
-  timerState.elapsedMs = Math.max(0, timer.elapsed_ms ?? timer.elapsedMs ?? 0);
-  timerState.running = Boolean(timer.running);
-  timerState.startedAt = timerState.running ? Date.now() : 0;
+  const remoteTimer = getRecord(timer);
+  const elapsedMs = Math.max(
+    0,
+    getNumberField(remoteTimer, ["elapsed_ms", "elapsedMs"])
+  );
+  const startedAt = Date.parse(
+    getStringField(remoteTimer, "started_at") ||
+      getStringField(remoteTimer, "startedAt")
+  );
+
+  timerState.elapsedMs = elapsedMs;
+  timerState.running = Boolean(remoteTimer.running);
+  timerState.startedAt = getRemoteTimerStartedAt(timerState.running, startedAt);
   updateTimerContext(
     {
-      billable: Boolean(timer.billable),
-      notes: timer.notes ?? "",
+      billable: Boolean(remoteTimer.billable),
+      notes: getStringField(remoteTimer, "notes"),
       projectName:
-        timer.project_name ?? timer.projectName ?? timerContext.projectName,
-      taskName: timer.task_name ?? timer.taskName ?? timerContext.taskName,
+        getStringField(remoteTimer, "project_name") ||
+        getStringField(remoteTimer, "projectName") ||
+        timerContext.projectName,
+      taskName:
+        getStringField(remoteTimer, "task_name") ||
+        getStringField(remoteTimer, "taskName") ||
+        timerContext.taskName,
     },
     false
   );
+}
+
+function getRemoteTimerStartedAt(running: boolean, startedAt: number) {
+  if (!running) {
+    return 0;
+  }
+
+  return Number.isFinite(startedAt) ? startedAt : Date.now();
 }
 
 async function miruRequest(
@@ -856,7 +1033,7 @@ async function miruRequest(
   };
 
   if (!(options.skipAuth ?? false)) {
-    headers["Authorization"] = `Bearer ${miruAccount.authToken}`;
+    headers.Authorization = `Bearer ${miruAccount.authToken}`;
     headers["X-Auth-Email"] = miruAccount.authEmail;
     headers["X-Auth-Token"] = miruAccount.authToken;
   }
@@ -894,7 +1071,7 @@ function scheduleTimerPersist() {
 
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    void persistTimerState();
+    persistTimerStateInBackground();
   }, 1000);
 }
 
@@ -1151,40 +1328,13 @@ function forceIdleForTesting(durationMs: number) {
   updateTray();
 }
 
-async function showIdlePrompt() {
+function showIdlePrompt() {
   if (!idleSession) {
     return;
   }
 
-  const idleMs = Math.max(0, Date.now() - idleSession.startedAt);
   openMainWindow();
-
-  const options: MessageBoxOptions = {
-    buttons: [
-      "Remove idle time and continue",
-      "Remove idle time and start new",
-      "Ignore and continue",
-    ],
-    cancelId: 2,
-    defaultId: 0,
-    detail: `${formatLongDuration(idleMs)} can be removed from the current timer.`,
-    message: "You were idle while the timer was running.",
-    noLink: true,
-    type: "question",
-  };
-  const result =
-    mainWindow && !mainWindow.isDestroyed()
-      ? await dialog.showMessageBox(mainWindow, options)
-      : await dialog.showMessageBox(options);
-
-  const action: IdleAction =
-    result.response === 0
-      ? "remove-continue"
-      : result.response === 1
-        ? "remove-start-new"
-        : "ignore-continue";
-
-  applyIdleAction(action);
+  updateTray();
 }
 
 function stopTrayInterval() {
@@ -1264,32 +1414,40 @@ function getTrayVisualState(snapshot: ReturnType<typeof getTimerSnapshot>) {
 function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
   const palettes = {
     idle: {
-      accent: "#facc15",
-      background: "#9a3412",
-      border: "#f59e0b",
+      accent: "#f59e0b",
+      background: "#fef3c7",
+      border: "#fbbf24",
       glyph: "#ffffff",
-      highlight: "#f97316",
+      glyphBackground: "#b45309",
+      highlight: "#fde68a",
+      surfaceOpacity: 0.74,
     },
     paused: {
-      accent: "#c4b5fd",
-      background: "#4c4563",
-      border: "#8b7fc0",
-      glyph: "#ffffff",
-      highlight: "#756c92",
-    },
-    ready: {
-      accent: "#c4c7cf",
-      background: "#2f3138",
-      border: "#6b7280",
-      glyph: "#ffffff",
-      highlight: "#4b5563",
-    },
-    running: {
-      accent: "#c4b5fd",
-      background: "#4c1d95",
+      accent: "#8b5cf6",
+      background: "#ede9fe",
       border: "#a78bfa",
       glyph: "#ffffff",
-      highlight: "#7c3aed",
+      glyphBackground: "#5b34ea",
+      highlight: "#f5f3ff",
+      surfaceOpacity: 0.66,
+    },
+    ready: {
+      accent: "#6b7280",
+      background: "#f8fafc",
+      border: "#cbd5e1",
+      glyph: "#334155",
+      glyphBackground: "#ffffff",
+      highlight: "#ffffff",
+      surfaceOpacity: 0.58,
+    },
+    running: {
+      accent: "#10b981",
+      background: "#ede9fe",
+      border: "#8b5cf6",
+      glyph: "#ffffff",
+      glyphBackground: "#5b34ea",
+      highlight: "#f5f3ff",
+      surfaceOpacity: 0.76,
     },
   } as const;
 
@@ -1316,10 +1474,20 @@ function renderTrayPng({
   const accent = hexToRgba(palette.accent);
   const border = hexToRgba(palette.border);
   const glyph = hexToRgba(palette.glyph);
+  const glyphBackground = hexToRgba(palette.glyphBackground);
 
-  drawShadow(pixels, size, center, center + 1.2, 19.6);
-  drawGradientCircle(pixels, size, center, center, 18.8, highlight, background);
-  drawRing(pixels, size, center, center, 18, 1.5, border, 0.82);
+  drawShadow(pixels, size, center, center + 1.2, 18.5);
+  drawGradientCircle(
+    pixels,
+    size,
+    center,
+    center,
+    17.8,
+    highlight,
+    background,
+    palette.surfaceOpacity
+  );
+  drawRing(pixels, size, center, center, 17.2, 1.4, border, 0.72);
 
   if (state === "running") {
     drawCircle(pixels, size, center, center, 10.8 + glow * 3, accent, 0.2);
@@ -1381,6 +1549,7 @@ function renderTrayPng({
     );
   }
 
+  drawCircle(pixels, size, center, center, 10.8, glyphBackground, 0.94);
   drawGlyph(pixels, size, state, glyph);
 
   return encodePng(size, size, pixels);
@@ -1434,7 +1603,8 @@ function drawGradientCircle(
   cy: number,
   radius: number,
   from: Rgba,
-  to: Rgba
+  to: Rgba,
+  opacity = 1
 ) {
   const radiusSquared = radius * radius;
 
@@ -1450,7 +1620,7 @@ function drawGradientCircle(
 
       const edge = Math.min(1, radius - Math.sqrt(distanceSquared));
       const mix = Math.min(1, Math.max(0, (x + y) / (size * 2)));
-      blendPixel(pixels, size, x, y, mixColor(from, to, mix), edge);
+      blendPixel(pixels, size, x, y, mixColor(from, to, mix), edge * opacity);
     }
   }
 }
@@ -1730,48 +1900,36 @@ function pngChunk(type: string, data: Buffer) {
 }
 
 function crc32(buffer: Buffer) {
-  let crc = 0xffffffff;
+  let crc = 0xff_ff_ff_ff;
 
   for (const byte of buffer) {
+    // biome-ignore lint/suspicious/noBitwiseOperators: PNG CRC32 encoding is defined in bitwise terms.
     crc ^= byte;
     for (let bit = 0; bit < 8; bit += 1) {
-      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+      // biome-ignore lint/suspicious/noBitwiseOperators: PNG CRC32 encoding is defined in bitwise terms.
+      crc = crc & 1 ? 0xed_b8_83_20 ^ (crc >>> 1) : crc >>> 1;
     }
   }
 
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function getTrayNativeActionLabel(
-  state: ReturnType<typeof getTrayVisualState>
-) {
-  if (state === "running") {
-    return "Pause";
-  }
-
-  if (state === "paused") {
-    return "Resume";
-  }
-
-  if (state === "idle") {
-    return "Idle";
-  }
-
-  return "Start";
+  // biome-ignore lint/suspicious/noBitwiseOperators: PNG CRC32 encoding is defined in bitwise terms.
+  return (crc ^ 0xff_ff_ff_ff) >>> 0;
 }
 
 function formatTrayNativeTitle(snapshot: ReturnType<typeof getTimerSnapshot>) {
-  const action = getTrayNativeActionLabel(getTrayVisualState(snapshot));
+  return snapshot.elapsedMs > 0
+    ? formatTrayNativeDuration(snapshot.elapsedMs)
+    : "--:--:--";
+}
 
-  if (snapshot.idle) {
-    return `! ${snapshot.formatted}`;
-  }
+function formatTrayNativeDuration(milliseconds: number) {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
-  if (snapshot.running || snapshot.elapsedMs > 0) {
-    return `${action} ${snapshot.formatted}`;
-  }
-
-  return `${action} --:--`;
+  return [hours, minutes, seconds]
+    .map((unit) => String(unit).padStart(2, "0"))
+    .join(":");
 }
 
 function getTrayStatusLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
@@ -2003,9 +2161,11 @@ function buildTrayMenu(snapshot: ReturnType<typeof getTimerSnapshot>) {
                       String(workspace.id) ===
                       String(miruAccount.currentWorkspaceId),
                     click: () => {
-                      void switchMiruWorkspace(workspace.id).then(() =>
-                        syncCurrentTimer("pull")
-                      );
+                      switchMiruWorkspace(workspace.id)
+                        .then(() => syncCurrentTimer("pull"))
+                        .catch((error) => {
+                          console.error("Failed to switch workspace", error);
+                        });
                     },
                     label: workspace.name,
                     type: "radio" as const,
@@ -2015,19 +2175,27 @@ function buildTrayMenu(snapshot: ReturnType<typeof getTimerSnapshot>) {
             : []),
           {
             click: () => {
-              void syncCurrentTimer("pull");
+              syncCurrentTimer("pull").catch((error) => {
+                console.error("Failed to pull current timer", error);
+              });
             },
             label: "Pull Current Timer from Miru",
           },
           {
             click: () => {
-              void syncCurrentTimer("push");
+              syncCurrentTimer("push").catch((error) => {
+                console.error("Failed to push current timer", error);
+              });
             },
             label: "Push Current Timer to Miru",
           },
           {
             click: () => {
-              void logoutFromMiru().then(() => updateTray({ persist: false }));
+              logoutFromMiru()
+                .then(() => updateTray({ persist: false }))
+                .catch((error) => {
+                  console.error("Failed to log out from Miru", error);
+                });
             },
             label: "Log Out",
           },
@@ -2136,8 +2304,8 @@ app.on("before-quit", () => {
     saveTimer = null;
   }
   stopTrayInterval();
-  void persistTimerState();
-  void persistAccountState();
+  persistTimerStateInBackground();
+  persistAccountStateInBackground();
   if (idleMonitor) {
     clearInterval(idleMonitor);
     idleMonitor = null;

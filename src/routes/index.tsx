@@ -42,6 +42,7 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_MIRU_BASE_URL, showMiruBaseUrlField } from "@/constants";
 import { cn } from "@/utils/tailwind";
 
 type EntryStatus = "approved" | "draft" | "running" | "submitted";
@@ -118,6 +119,333 @@ interface AuthForm {
   password: string;
 }
 
+type I18nKey =
+  | "account.menu"
+  | "account.settings"
+  | "account.logout"
+  | "account.quit"
+  | "app.subtitle"
+  | "app.title"
+  | "auth.connect"
+  | "auth.createAccount"
+  | "auth.email"
+  | "auth.firstName"
+  | "auth.google"
+  | "auth.lastName"
+  | "auth.login"
+  | "auth.miruUrl"
+  | "auth.password"
+  | "auth.signup"
+  | "entries.add"
+  | "entries.empty"
+  | "entries.emptyHint"
+  | "entries.save"
+  | "entries.title"
+  | "entries.edit"
+  | "entries.new"
+  | "field.date"
+  | "field.notes"
+  | "field.project"
+  | "field.task"
+  | "field.time"
+  | "idle.aria"
+  | "idle.keep"
+  | "idle.restart"
+  | "idle.title"
+  | "idle.trim"
+  | "settings.idlePrompt"
+  | "settings.language"
+  | "summary.entries"
+  | "summary.thisWeek"
+  | "summary.today"
+  | "sync.offline"
+  | "sync.pull"
+  | "sync.pullHint"
+  | "sync.push"
+  | "sync.pushHint"
+  | "sync.status.error"
+  | "sync.status.local"
+  | "sync.status.offline"
+  | "sync.status.synced"
+  | "sync.status.syncing"
+  | "sync.workspace"
+  | "task.timeEntry"
+  | "timer.pause"
+  | "timer.ready"
+  | "timer.reset"
+  | "timer.resume"
+  | "timer.running"
+  | "timer.start"
+  | "timer.stopSave"
+  | "timer.idle"
+  | "work.details";
+
+type Translator = (
+  key: I18nKey,
+  values?: Record<string, number | string>
+) => string;
+
+const APP_TRANSLATIONS: Record<string, Partial<Record<I18nKey, string>>> = {
+  "en-US": {
+    "account.logout": "Log out",
+    "account.menu": "Account menu",
+    "account.quit": "Quit Miru Time Tracking",
+    "account.settings": "Settings",
+    "app.subtitle": "Employee tracker",
+    "app.title": "Miru Time Tracking",
+    "auth.connect": "Connect to your workspace before tracking time.",
+    "auth.createAccount": "Create account",
+    "auth.email": "Email",
+    "auth.firstName": "First name",
+    "auth.google": "Open Google sign-in",
+    "auth.lastName": "Last name",
+    "auth.login": "Log in",
+    "auth.miruUrl": "Miru URL",
+    "auth.password": "Password",
+    "auth.signup": "Sign up",
+    "entries.add": "Entry",
+    "entries.empty": "No time entries yet",
+    "entries.emptyHint": "Start the timer or add an entry for this day.",
+    "entries.edit": "Edit entry",
+    "entries.new": "New entry",
+    "entries.save": "Save",
+    "entries.title": "{count} entries · {hours}h tracked",
+    "field.date": "Date",
+    "field.notes": "Notes",
+    "field.project": "Project",
+    "field.task": "Task",
+    "field.time": "Time",
+    "idle.aria": "Idle timer actions",
+    "idle.keep": "Keep idle time",
+    "idle.restart": "Trim idle and restart",
+    "idle.title": "Idle",
+    "idle.trim": "Trim idle and continue",
+    "settings.idlePrompt": "Idle prompt",
+    "settings.language": "Language",
+    "summary.entries": "Entries",
+    "summary.thisWeek": "This week",
+    "summary.today": "Today",
+    "sync.offline": "Offline",
+    "sync.pull": "Pull timer from Miru",
+    "sync.pullHint": "Use the current web timer in this desktop tracker.",
+    "sync.push": "Push timer to Miru",
+    "sync.pushHint": "Send this desktop timer state to Miru web.",
+    "sync.status.error": "Error",
+    "sync.status.local": "Local",
+    "sync.status.offline": "Offline",
+    "sync.status.synced": "Synced",
+    "sync.status.syncing": "Syncing",
+    "sync.workspace": "Workspace",
+    "task.timeEntry": "Time entry",
+    "timer.idle": "Idle",
+    "timer.pause": "Pause",
+    "timer.ready": "Ready",
+    "timer.reset": "Reset timer",
+    "timer.resume": "Resume",
+    "timer.running": "Tracking now",
+    "timer.start": "Start",
+    "timer.stopSave": "Stop and save",
+    "work.details": "Work details",
+  },
+  "en-GB": {},
+  ar: {
+    "account.logout": "تسجيل الخروج",
+    "account.settings": "الإعدادات",
+    "app.subtitle": "متتبع الموظف",
+    "auth.login": "تسجيل الدخول",
+    "auth.signup": "إنشاء حساب",
+    "field.notes": "ملاحظات",
+    "field.project": "المشروع",
+    "field.task": "المهمة",
+    "idle.title": "خمول",
+    "settings.language": "اللغة",
+    "summary.entries": "الإدخالات",
+    "summary.thisWeek": "هذا الأسبوع",
+    "summary.today": "اليوم",
+    "sync.workspace": "مساحة العمل",
+    "task.timeEntry": "إدخال وقت",
+    "timer.pause": "إيقاف مؤقت",
+    "timer.ready": "جاهز",
+    "timer.running": "جار التتبع",
+    "timer.start": "بدء",
+  },
+  de: {
+    "account.logout": "Abmelden",
+    "account.settings": "Einstellungen",
+    "app.subtitle": "Zeiterfassung",
+    "auth.login": "Anmelden",
+    "auth.signup": "Registrieren",
+    "field.notes": "Notizen",
+    "field.project": "Projekt",
+    "field.task": "Aufgabe",
+    "idle.title": "Inaktiv",
+    "settings.language": "Sprache",
+    "summary.entries": "Einträge",
+    "summary.thisWeek": "Diese Woche",
+    "summary.today": "Heute",
+    "sync.workspace": "Arbeitsbereich",
+    "task.timeEntry": "Zeiteintrag",
+    "timer.pause": "Pause",
+    "timer.ready": "Bereit",
+    "timer.running": "Läuft",
+    "timer.start": "Start",
+  },
+  es: {
+    "account.logout": "Cerrar sesión",
+    "account.settings": "Ajustes",
+    "app.subtitle": "Registro de tiempo",
+    "auth.login": "Iniciar sesión",
+    "auth.signup": "Registrarse",
+    "field.notes": "Notas",
+    "field.project": "Proyecto",
+    "field.task": "Tarea",
+    "idle.title": "Inactivo",
+    "settings.language": "Idioma",
+    "summary.entries": "Entradas",
+    "summary.thisWeek": "Esta semana",
+    "summary.today": "Hoy",
+    "sync.workspace": "Espacio",
+    "task.timeEntry": "Entrada de tiempo",
+    "timer.pause": "Pausar",
+    "timer.ready": "Listo",
+    "timer.running": "Registrando",
+    "timer.start": "Iniciar",
+  },
+  fr: {
+    "account.logout": "Déconnexion",
+    "account.settings": "Réglages",
+    "app.subtitle": "Suivi du temps",
+    "auth.login": "Connexion",
+    "auth.signup": "Créer un compte",
+    "field.notes": "Notes",
+    "field.project": "Projet",
+    "field.task": "Tâche",
+    "idle.title": "Inactif",
+    "settings.language": "Langue",
+    "summary.entries": "Entrées",
+    "summary.thisWeek": "Cette semaine",
+    "summary.today": "Aujourd'hui",
+    "sync.workspace": "Espace",
+    "task.timeEntry": "Saisie de temps",
+    "timer.pause": "Pause",
+    "timer.ready": "Prêt",
+    "timer.running": "En cours",
+    "timer.start": "Démarrer",
+  },
+  hi: {
+    "account.logout": "लॉग आउट",
+    "account.settings": "सेटिंग्स",
+    "app.subtitle": "समय ट्रैकर",
+    "auth.login": "लॉग इन",
+    "auth.signup": "साइन अप",
+    "field.notes": "नोट्स",
+    "field.project": "प्रोजेक्ट",
+    "field.task": "कार्य",
+    "idle.title": "निष्क्रिय",
+    "settings.language": "भाषा",
+    "summary.entries": "एंट्री",
+    "summary.thisWeek": "इस सप्ताह",
+    "summary.today": "आज",
+    "sync.workspace": "वर्कस्पेस",
+    "task.timeEntry": "समय एंट्री",
+    "timer.pause": "रोकें",
+    "timer.ready": "तैयार",
+    "timer.running": "ट्रैकिंग",
+    "timer.start": "शुरू",
+  },
+  ja: {
+    "account.logout": "ログアウト",
+    "account.settings": "設定",
+    "app.subtitle": "タイムトラッカー",
+    "auth.login": "ログイン",
+    "auth.signup": "登録",
+    "field.notes": "メモ",
+    "field.project": "プロジェクト",
+    "field.task": "タスク",
+    "idle.title": "離席",
+    "settings.language": "言語",
+    "summary.entries": "入力",
+    "summary.thisWeek": "今週",
+    "summary.today": "今日",
+    "sync.workspace": "ワークスペース",
+    "task.timeEntry": "時間入力",
+    "timer.pause": "一時停止",
+    "timer.ready": "準備完了",
+    "timer.running": "記録中",
+    "timer.start": "開始",
+  },
+  "pt-BR": {
+    "account.logout": "Sair",
+    "account.settings": "Configurações",
+    "app.subtitle": "Controle de tempo",
+    "auth.login": "Entrar",
+    "auth.signup": "Cadastrar",
+    "field.notes": "Notas",
+    "field.project": "Projeto",
+    "field.task": "Tarefa",
+    "idle.title": "Inativo",
+    "settings.language": "Idioma",
+    "summary.entries": "Registros",
+    "summary.thisWeek": "Esta semana",
+    "summary.today": "Hoje",
+    "sync.workspace": "Área",
+    "task.timeEntry": "Registro de tempo",
+    "timer.pause": "Pausar",
+    "timer.ready": "Pronto",
+    "timer.running": "Registrando",
+    "timer.start": "Iniciar",
+  },
+  "zh-CN": {
+    "account.logout": "退出登录",
+    "account.settings": "设置",
+    "app.subtitle": "时间追踪",
+    "auth.login": "登录",
+    "auth.signup": "注册",
+    "field.notes": "备注",
+    "field.project": "项目",
+    "field.task": "任务",
+    "idle.title": "空闲",
+    "settings.language": "语言",
+    "summary.entries": "记录",
+    "summary.thisWeek": "本周",
+    "summary.today": "今天",
+    "sync.workspace": "工作区",
+    "task.timeEntry": "时间记录",
+    "timer.pause": "暂停",
+    "timer.ready": "就绪",
+    "timer.running": "记录中",
+    "timer.start": "开始",
+  },
+};
+
+const DEFAULT_LOCALE = "en-US";
+const SUPPORTED_LOCALES = [
+  "en-GB",
+  "en-US",
+  "hi",
+  "mr",
+  "bn",
+  "gu",
+  "kn",
+  "ml",
+  "pa",
+  "ta",
+  "te",
+  "ur",
+  "es",
+  "fr",
+  "de",
+  "it",
+  "nl",
+  "id",
+  "pt-BR",
+  "tr",
+  "ar",
+  "ja",
+  "ko",
+  "zh-CN",
+] as const;
+
 const miruLogoUrl = new URL("../assets/miru-time-icon.svg", import.meta.url)
   .href;
 
@@ -125,6 +453,7 @@ const tasks: Task[] = [{ id: "time", name: "Time entry" }];
 
 const todayIso = new Date().toISOString().slice(0, 10);
 const INITIALS_SPLIT_PATTERN = /\s+/;
+const ABSOLUTE_ASSET_PATTERN = /^(?:https?:|data:|blob:)/i;
 
 const initialTimer: TimerState = {
   billable: false,
@@ -172,7 +501,7 @@ function HomePage() {
   );
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [authForm, setAuthForm] = useState<AuthForm>({
-    baseUrl: "http://127.0.0.1:3000",
+    baseUrl: DEFAULT_MIRU_BASE_URL,
     email: "",
     firstName: "",
     lastName: "",
@@ -416,10 +745,23 @@ function HomePage() {
   const activeWorkspace = getActiveWorkspace(miruSession);
   const accountLabel = getAccountName(miruSession?.user);
   const accountEmail = getAccountEmail(miruSession?.user);
+  const accountAvatarUrl = getAccountAvatarUrl(
+    miruSession?.user,
+    miruSession?.baseUrl
+  );
+  const appLocale = useMemo(
+    () => getAppLocale(miruSession?.user),
+    [miruSession?.user]
+  );
+  const t = useMemo(() => createTranslator(appLocale), [appLocale]);
+
+  useEffect(() => {
+    window.localStorage.setItem("miru-time-locale", appLocale);
+  }, [appLocale]);
 
   const timerPanelClass = getTimerPanelClass(timer);
   const timerDotClass = getTimerDotClass(timer);
-  const timerStatusLabel = getTimerStatusLabel(timer);
+  const timerStatusLabel = getTimerStatusLabel(timer, t);
 
   useEffect(() => {
     window.miruTimer
@@ -523,22 +865,14 @@ function HomePage() {
     }
 
     if (entryDialog?.mode === "edit" && entryDialog.entryId) {
-      setEntries((current) =>
-        current.map((entry) =>
-          entry.id === entryDialog.entryId
-            ? {
-                ...entry,
-                billable: false,
-                clientId: project.clientId,
-                date: entryDraft.date,
-                hours,
-                notes: entryDraft.notes || "Time entry",
-                projectId: project.id,
-                taskId: entryDraft.taskId,
-              }
-            : entry
-        )
-      );
+      await window.miruApi.updateTimerEntry({
+        duration: Math.max(1, Math.round(hours * 60)),
+        entryId: entryDialog.entryId,
+        note: entryDraft.notes || "Time entry",
+        projectId: project.id,
+        workDate: entryDraft.date,
+      });
+      await loadTimeTracking();
     } else if (hours > 0) {
       await window.miruApi.saveTimerEntry({
         duration: Math.max(1, Math.round(hours * 60)),
@@ -574,7 +908,15 @@ function HomePage() {
     const confirmed = await window.nativeDialog.confirmDeleteTimeEntry();
 
     if (confirmed) {
-      setEntries((current) => current.filter((item) => item.id !== entry.id));
+      try {
+        await window.miruApi.deleteTimerEntry(entry.id);
+        await loadTimeTracking();
+        setSyncMessage("Entry deleted.");
+      } catch (error) {
+        setSyncMessage(
+          error instanceof Error ? error.message : "Entry delete failed."
+        );
+      }
     }
   }
 
@@ -635,7 +977,16 @@ function HomePage() {
             });
 
       setMiruSession(session);
-      setSyncMessage("Connected.");
+      if (authMode === "signup" && !session.signedIn) {
+        setAuthMode("login");
+        setSyncMessage(
+          session.syncError ||
+            "Account created. Confirm your email, then log in."
+        );
+        return;
+      }
+
+      setSyncMessage(session.signedIn ? "Connected." : session.syncError);
     } catch (error) {
       setSyncMessage(
         error instanceof Error ? error.message : "Miru sync failed."
@@ -670,7 +1021,7 @@ function HomePage() {
   async function openGoogleLogin() {
     await window.miruApi.googleLogin(authForm.baseUrl);
     setSyncMessage(
-      "Google sign-in opened in your browser. Return here after signing in."
+      "Google sign-in opened in your browser. Use email login here after Miru web signs you in."
     );
   }
 
@@ -690,8 +1041,8 @@ function HomePage() {
   }
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
-      <header className="draglayer grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
+    <div className="relative isolate flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
+      <header className="draglayer relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <img
             alt=""
@@ -701,10 +1052,10 @@ function HomePage() {
             width={28}
           />
           <div className="min-w-0">
-            <h1 className="truncate font-semibold text-sm">
-              Miru Time Tracking
-            </h1>
-            <p className="text-muted-foreground text-xs">Employee tracker</p>
+            <h1 className="truncate font-semibold text-sm">{t("app.title")}</h1>
+            <p className="font-medium text-foreground/65 text-xs">
+              {t("app.subtitle")}
+            </p>
           </div>
         </div>
         {/* Signed-out users stay in onboarding; the header menu is only account actions. */}
@@ -712,16 +1063,21 @@ function HomePage() {
           <button
             aria-label="Account menu"
             className={cn(
-              "no-drag interactive-lift icon-motion flex size-8 items-center justify-center rounded-md border text-muted-foreground transition",
+              "no-drag interactive-lift icon-motion flex size-9 items-center justify-center overflow-hidden rounded-full border text-foreground/70 transition",
               showSync
                 ? "border-primary/30 bg-primary/10 text-primary"
                 : "border-transparent hover:border-border hover:bg-muted hover:text-foreground"
             )}
             onClick={() => setShowSync((visible) => !visible)}
-            title="Account menu"
+            title={t("account.menu")}
             type="button"
           >
-            <UserRound className="size-4" />
+            <AccountAvatar
+              avatarUrl={accountAvatarUrl}
+              email={accountEmail}
+              name={accountLabel}
+              size="sm"
+            />
           </button>
         )}
       </header>
@@ -735,14 +1091,15 @@ function HomePage() {
             selectedClient={selectedClient}
             selectedProject={selectedProject}
             selectedTask={selectedTask}
+            t={t}
             timer={timer}
             timerDotClass={timerDotClass}
             timerPanelClass={timerPanelClass}
             timerStatusLabel={timerStatusLabel}
           />
 
-          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
-            <TimeSummaryStrip summary={timeSummary} />
+          <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+            <TimeSummaryStrip summary={timeSummary} t={t} />
 
             <WorkDetailsPanel
               clients={clients}
@@ -760,6 +1117,7 @@ function HomePage() {
               selectedClient={selectedClient}
               selectedProject={selectedProject}
               selectedTask={selectedTask}
+              t={t}
               timer={timer}
             />
 
@@ -767,6 +1125,7 @@ function HomePage() {
               <IdlePrompt
                 durationMs={timer.idle.durationMs}
                 onAction={applyIdleAction}
+                t={t}
               />
             )}
 
@@ -781,10 +1140,12 @@ function HomePage() {
               projects={projects}
               selectedDate={selectedDate}
               selectedDayHours={selectedDayHours}
+              t={t}
             />
           </main>
 
           <AccountMenuOverlay
+            appLocale={appLocale}
             authForm={authForm}
             authMode={authMode}
             idleThresholdSeconds={timer.idleThresholdSeconds}
@@ -806,6 +1167,7 @@ function HomePage() {
             onWorkspaceChange={switchWorkspace}
             show={showSync}
             syncMessage={syncMessage}
+            t={t}
           />
 
           {entryDialog && (
@@ -818,6 +1180,7 @@ function HomePage() {
               onSave={() => saveEntryDraft(false)}
               onStart={() => saveEntryDraft(true)}
               projects={projects}
+              t={t}
             />
           )}
         </>
@@ -830,6 +1193,7 @@ function HomePage() {
           onGoogleLogin={openGoogleLogin}
           onSubmitAuth={submitMiruAuth}
           syncMessage={syncMessage}
+          t={t}
         />
       )}
     </div>
@@ -847,6 +1211,7 @@ function TimerHeroPanel({
   timerDotClass,
   timerPanelClass,
   timerStatusLabel,
+  t,
 }: {
   onResetTimer: () => void;
   onSaveTimerEntry: () => void;
@@ -858,80 +1223,99 @@ function TimerHeroPanel({
   timerDotClass: string;
   timerPanelClass: string;
   timerStatusLabel: string;
+  t: Translator;
 }) {
   const canSave = timer.elapsedSeconds >= 60 && Boolean(selectedProject);
+  const isRunning = timer.running;
 
   return (
     <section
       className={cn(
-        "motion-fade-up border-b px-4 py-4 transition-colors",
+        "motion-fade-up border-b px-4 py-3 transition-colors",
         timerPanelClass
       )}
     >
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <span className={cn("size-2.5 rounded-full", timerDotClass)} />
-        <span>{timerStatusLabel}</span>
-      </div>
-
-      <div className="mt-2 flex items-end justify-between gap-3">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-3">
         <div className="min-w-0">
-          <p className="font-mono font-semibold text-4xl tabular-nums tracking-normal">
+          <div
+            className={cn(
+              "mb-1 flex items-center gap-2 font-medium text-xs",
+              isRunning ? "text-white/75" : "text-foreground/70"
+            )}
+          >
+            <span className={cn("size-2.5 rounded-full", timerDotClass)} />
+            <span>{timerStatusLabel}</span>
+          </div>
+          <p
+            className={cn(
+              "font-mono font-semibold text-4xl tabular-nums tracking-normal",
+              isRunning ? "text-white" : "text-foreground"
+            )}
+          >
             {formatDuration(timer.elapsedSeconds)}
           </p>
-          <p className="mt-1 truncate text-muted-foreground text-sm">
+          <p
+            className={cn(
+              "mt-0.5 truncate font-medium text-xs",
+              isRunning ? "text-white/70" : "text-foreground/65"
+            )}
+          >
             {selectedClient?.name ?? "Choose a project"} /{" "}
-            {selectedProject?.name ?? "No project"} / {selectedTask.name}
+            {selectedProject?.name ?? "No project"} /{" "}
+            {getTaskDisplayName(selectedTask, t)}
           </p>
         </div>
-        <Button
-          className={cn(
-            "interactive-lift size-12 shrink-0 rounded-full shadow-lg",
-            timer.running
-              ? "bg-white text-[#211044] hover:bg-white/90"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
-          onClick={onToggleTimer}
-          size="icon-lg"
-          title={timer.running ? "Pause timer" : "Start timer"}
-          type="button"
-        >
-          {timer.running ? (
-            <Pause className="size-5" />
-          ) : (
-            <Play className="ml-0.5 size-5" />
-          )}
-        </Button>
-      </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
-        <Button
-          className="interactive-lift h-9"
-          disabled={!canSave}
-          onClick={onSaveTimerEntry}
-          type="button"
-        >
-          <Square />
-          Stop and save
-        </Button>
-        <Button
-          className="interactive-lift h-9"
-          onClick={onToggleTimer}
-          type="button"
-          variant="outline"
-        >
-          {timer.running ? <Pause /> : <Play />}
-          {timer.running ? "Pause" : "Start"}
-        </Button>
-        <Button
-          className="interactive-lift h-9"
-          onClick={onResetTimer}
-          size="icon-lg"
-          title="Reset timer"
-          type="button"
-          variant="outline"
-        >
-          <RotateCcw />
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            aria-label={t("timer.stopSave")}
+            className={cn(
+              "interactive-lift icon-motion grid size-10 place-items-center rounded-lg border transition",
+              isRunning
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                : "border-border bg-white text-foreground hover:bg-muted",
+              !canSave && "opacity-45"
+            )}
+            disabled={!canSave}
+            onClick={onSaveTimerEntry}
+            title={t("timer.stopSave")}
+            type="button"
+          >
+            <Square className="size-4" />
+          </button>
+          <button
+            aria-label={timer.running ? t("timer.pause") : t("timer.start")}
+            className={cn(
+              "interactive-lift icon-motion grid size-12 place-items-center rounded-full shadow-lg transition",
+              timer.running
+                ? "bg-white text-[#261257] hover:bg-white/90"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            )}
+            onClick={onToggleTimer}
+            title={timer.running ? t("timer.pause") : t("timer.start")}
+            type="button"
+          >
+            {timer.running ? (
+              <Pause className="size-5" />
+            ) : (
+              <Play className="ml-0.5 size-5" />
+            )}
+          </button>
+          <button
+            aria-label={t("timer.reset")}
+            className={cn(
+              "interactive-lift icon-motion grid size-10 place-items-center rounded-lg border transition",
+              isRunning
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                : "border-border bg-white text-foreground hover:bg-muted"
+            )}
+            onClick={onResetTimer}
+            title={t("timer.reset")}
+            type="button"
+          >
+            <RotateCcw className="size-4" />
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -945,6 +1329,7 @@ function WorkDetailsPanel({
   selectedClient,
   selectedProject,
   selectedTask,
+  t,
   timer,
 }: {
   clients: Client[];
@@ -954,6 +1339,7 @@ function WorkDetailsPanel({
   selectedClient: Client | null;
   selectedProject: Project | undefined;
   selectedTask: Task;
+  t: Translator;
   timer: TimerState;
 }) {
   return (
@@ -963,8 +1349,8 @@ function WorkDetailsPanel({
           <FolderKanban className="size-4" />
         </span>
         <div>
-          <p className="font-semibold text-sm">Work details</p>
-          <p className="text-muted-foreground text-xs">
+          <p className="font-semibold text-sm">{t("work.details")}</p>
+          <p className="font-medium text-foreground/60 text-xs">
             {selectedClient?.name ?? "Select client"} /{" "}
             {selectedProject?.name ?? "Select project"}
           </p>
@@ -972,7 +1358,7 @@ function WorkDetailsPanel({
       </div>
 
       <div className="grid gap-3">
-        <FieldLabel icon={<FolderKanban />} label="Project">
+        <FieldLabel icon={<FolderKanban />} label={t("field.project")}>
           <Select onChange={onProjectChange} value={timer.projectId}>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -983,19 +1369,19 @@ function WorkDetailsPanel({
           </Select>
         </FieldLabel>
 
-        <FieldLabel icon={<ListChecks />} label="Task">
+        <FieldLabel icon={<ListChecks />} label={t("field.task")}>
           <Select onChange={() => undefined} value={selectedTask.id}>
             {tasks.map((task) => (
               <option key={task.id} value={task.id}>
-                {task.name}
+                {getTaskDisplayName(task, t)}
               </option>
             ))}
           </Select>
         </FieldLabel>
 
-        <FieldLabel icon={<FileText />} label="Notes">
+        <FieldLabel icon={<FileText />} label={t("field.notes")}>
           <textarea
-            className="min-h-18 resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
+            className="min-h-18 resize-none rounded-md border bg-background px-3 py-2 font-medium text-foreground text-sm outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-primary/30"
             onChange={(event) => onNotesChange(event.target.value)}
             placeholder="What are you working on?"
             value={timer.notes}
@@ -1017,6 +1403,7 @@ function EntriesPanel({
   projects,
   selectedDate,
   selectedDayHours,
+  t,
 }: {
   clients: Client[];
   entries: TimeEntry[];
@@ -1028,14 +1415,18 @@ function EntriesPanel({
   projects: Project[];
   selectedDate: string;
   selectedDayHours: number;
+  t: Translator;
 }) {
   return (
     <section className="mt-3 min-h-0 overflow-hidden rounded-lg border bg-background shadow-sm">
       <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-b p-3">
         <div className="min-w-0">
           <p className="font-semibold text-sm">{dayTitle(selectedDate)}</p>
-          <p className="text-muted-foreground text-xs">
-            {entries.length} entries · {formatHours(selectedDayHours)}h tracked
+          <p className="font-medium text-foreground/60 text-xs">
+            {t("entries.title", {
+              count: entries.length,
+              hours: formatHours(selectedDayHours),
+            })}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1051,7 +1442,7 @@ function EntriesPanel({
             type="button"
           >
             <CalendarPlus />
-            Entry
+            {t("entries.add")}
           </Button>
         </div>
       </div>
@@ -1076,9 +1467,9 @@ function EntriesPanel({
             <div className="mx-auto flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Timer className="size-5" />
             </div>
-            <p className="mt-3 font-semibold text-sm">No time entries yet</p>
-            <p className="mt-1 text-muted-foreground text-xs">
-              Start the timer or add an entry for this day.
+            <p className="mt-3 font-semibold text-sm">{t("entries.empty")}</p>
+            <p className="mt-1 font-medium text-foreground/60 text-xs">
+              {t("entries.emptyHint")}
             </p>
             <Button
               className="interactive-lift mt-4"
@@ -1087,7 +1478,7 @@ function EntriesPanel({
               variant="outline"
             >
               <Plus />
-              Add entry
+              {t("entries.add")}
             </Button>
           </div>
         </div>
@@ -1097,6 +1488,7 @@ function EntriesPanel({
 }
 
 function AccountMenuOverlay({
+  appLocale,
   authForm,
   authMode,
   idleThresholdSeconds,
@@ -1113,7 +1505,9 @@ function AccountMenuOverlay({
   onWorkspaceChange,
   show,
   syncMessage,
+  t,
 }: {
+  appLocale: string;
   authForm: AuthForm;
   authMode: AuthMode;
   idleThresholdSeconds: number;
@@ -1130,26 +1524,28 @@ function AccountMenuOverlay({
   onWorkspaceChange: (workspaceId: string) => void;
   show: boolean;
   syncMessage: string;
+  t: Translator;
 }) {
   if (!show) {
     return null;
   }
 
   return (
-    <div className="absolute inset-0 z-40">
+    <div className="absolute inset-0 z-[80]">
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-transparent"
+        className="absolute inset-0 bg-white/10 backdrop-blur-[1px]"
         onClick={onClose}
       />
       <div
         aria-label="Account and sync menu"
-        className="motion-popover no-drag absolute top-16 right-3 w-[22rem] max-w-[calc(100vw-1.5rem)]"
+        className="motion-popover no-drag absolute top-16 right-3 z-[90] w-[22rem] max-w-[calc(100vw-1.5rem)]"
         ref={menuRef}
         role="dialog"
         tabIndex={-1}
       >
         <SyncPanel
+          appLocale={appLocale}
           authForm={authForm}
           authMode={authMode}
           idleThresholdSeconds={idleThresholdSeconds}
@@ -1163,6 +1559,7 @@ function AccountMenuOverlay({
           onSyncTimer={onSyncTimer}
           onWorkspaceChange={onWorkspaceChange}
           syncMessage={syncMessage}
+          t={t}
         />
       </div>
     </div>
@@ -1177,6 +1574,7 @@ function OnboardingPanel({
   onGoogleLogin,
   onSubmitAuth,
   syncMessage,
+  t,
 }: {
   authForm: AuthForm;
   authMode: AuthMode;
@@ -1185,14 +1583,15 @@ function OnboardingPanel({
   onGoogleLogin: () => void;
   onSubmitAuth: () => void;
   syncMessage: string;
+  t: Translator;
 }) {
   return (
     <main className="grid min-h-0 flex-1 place-items-center p-5">
       <section className="motion-dialog w-full max-w-sm rounded-lg border bg-background p-4 shadow-sm">
         <div>
-          <p className="font-semibold text-lg">Log in to Miru</p>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Connect to your workspace before tracking time.
+          <p className="font-semibold text-lg">{t("auth.login")}</p>
+          <p className="mt-1 font-medium text-foreground/60 text-sm">
+            {t("auth.connect")}
           </p>
         </div>
         <div className="mt-4 grid gap-3">
@@ -1203,7 +1602,7 @@ function OnboardingPanel({
             variant="outline"
           >
             <LogIn />
-            Continue with Google
+            {t("auth.google")}
           </Button>
           <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/40 p-1">
             {(["login", "signup"] as const).map((mode) => (
@@ -1218,20 +1617,25 @@ function OnboardingPanel({
                 onClick={() => onAuthModeChange(mode)}
                 type="button"
               >
-                {mode === "login" ? "Log in" : "Sign up"}
+                {mode === "login" ? t("auth.login") : t("auth.signup")}
               </button>
             ))}
           </div>
-          <FieldLabel icon={<LinkIcon />} label="Miru URL">
-            <input
-              className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-              onChange={(event) =>
-                onAuthFormChange({ ...authForm, baseUrl: event.target.value })
-              }
-              value={authForm.baseUrl}
-            />
-          </FieldLabel>
-          <FieldLabel icon={<Mail />} label="Email">
+          {showMiruBaseUrlField && (
+            <FieldLabel icon={<LinkIcon />} label={t("auth.miruUrl")}>
+              <input
+                className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                onChange={(event) =>
+                  onAuthFormChange({
+                    ...authForm,
+                    baseUrl: event.target.value,
+                  })
+                }
+                value={authForm.baseUrl}
+              />
+            </FieldLabel>
+          )}
+          <FieldLabel icon={<Mail />} label={t("auth.email")}>
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1243,7 +1647,7 @@ function OnboardingPanel({
           </FieldLabel>
           {authMode === "signup" && (
             <div className="grid grid-cols-2 gap-2">
-              <FieldLabel icon={<UserRound />} label="First name">
+              <FieldLabel icon={<UserRound />} label={t("auth.firstName")}>
                 <input
                   className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={(event) =>
@@ -1255,7 +1659,7 @@ function OnboardingPanel({
                   value={authForm.firstName}
                 />
               </FieldLabel>
-              <FieldLabel icon={<UserRound />} label="Last name">
+              <FieldLabel icon={<UserRound />} label={t("auth.lastName")}>
                 <input
                   className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={(event) =>
@@ -1269,7 +1673,7 @@ function OnboardingPanel({
               </FieldLabel>
             </div>
           )}
-          <FieldLabel icon={<LockKeyhole />} label="Password">
+          <FieldLabel icon={<LockKeyhole />} label={t("auth.password")}>
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1280,7 +1684,7 @@ function OnboardingPanel({
             />
           </FieldLabel>
           <Button className="h-10 w-full" onClick={onSubmitAuth} type="button">
-            {authMode === "login" ? "Log in" : "Create account"}
+            {authMode === "login" ? t("auth.login") : t("auth.createAccount")}
           </Button>
           {syncMessage && (
             <p className="rounded-md bg-muted px-3 py-2 text-muted-foreground text-xs">
@@ -1366,66 +1770,101 @@ function TimeEntryRow({
 function IdlePrompt({
   durationMs,
   onAction,
+  t,
 }: {
   durationMs: number;
   onAction: (
     action: "ignore-continue" | "remove-continue" | "remove-start-new"
   ) => void;
+  t: Translator;
 }) {
+  const actions = [
+    {
+      action: "remove-continue" as const,
+      className: "bg-emerald-500 text-white shadow-emerald-500/25",
+      icon: Check,
+      label: t("idle.trim"),
+    },
+    {
+      action: "remove-start-new" as const,
+      className: "bg-primary text-primary-foreground shadow-primary/25",
+      icon: RefreshCw,
+      label: t("idle.restart"),
+    },
+    {
+      action: "ignore-continue" as const,
+      className: "bg-foreground text-background shadow-foreground/15",
+      icon: Play,
+      label: t("idle.keep"),
+    },
+  ];
+
   return (
-    <section className="motion-fade-up mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
-      <div className="flex items-center gap-2">
-        <span className="flex size-8 items-center justify-center rounded-md bg-amber-100 text-amber-700">
-          <TimerReset className="size-4" />
-        </span>
-        <p className="font-semibold text-sm">
-          Idle time detected: {formatLongDuration(durationMs)}
+    <div className="absolute inset-0 z-50 grid place-items-center bg-white/55 p-5 backdrop-blur-[2px]">
+      <section
+        aria-label={t("idle.aria")}
+        className="motion-dialog w-full max-w-[19rem] rounded-xl border bg-white p-4 text-center shadow-2xl ring-1 ring-black/5"
+        role="dialog"
+      >
+        <div className="mx-auto grid size-16 place-items-center rounded-full bg-amber-50 text-amber-600">
+          <span className="motion-idle-orbit grid size-11 place-items-center rounded-full bg-amber-100">
+            <TimerReset className="size-5" />
+          </span>
+        </div>
+        <p className="mt-3 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+          {t("idle.title")}
         </p>
-      </div>
-      <div className="mt-2 grid gap-2">
-        <Button
-          className="justify-start"
-          onClick={() => onAction("remove-continue")}
-          variant="outline"
-        >
-          <Check />
-          Remove and continue
-        </Button>
-        <Button
-          className="justify-start"
-          onClick={() => onAction("remove-start-new")}
-          variant="outline"
-        >
-          <RefreshCw />
-          Remove and start new
-        </Button>
-        <Button
-          className="justify-start"
-          onClick={() => onAction("ignore-continue")}
-        >
-          <Play />
-          Ignore and continue
-        </Button>
-      </div>
-    </section>
+        <p className="mt-1 font-mono font-semibold text-5xl tabular-nums">
+          {formatCompactDuration(durationMs)}
+        </p>
+
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          {actions.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                aria-label={item.label}
+                className={cn(
+                  "interactive-lift icon-motion grid aspect-square place-items-center rounded-xl shadow-lg transition",
+                  item.className
+                )}
+                key={item.action}
+                onClick={() => onAction(item.action)}
+                title={item.label}
+                type="button"
+              >
+                <Icon className="size-5" />
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </div>
   );
 }
 
-function TimeSummaryStrip({ summary }: { summary: TimeSummary }) {
+function TimeSummaryStrip({
+  summary,
+  t,
+}: {
+  summary: TimeSummary;
+  t: Translator;
+}) {
   const items = [
     {
       icon: Clock3,
-      label: "Today",
+      label: t("summary.today"),
       value: formatEntryDuration(summary.todayHours),
     },
     {
       icon: CalendarDays,
-      label: "This week",
+      label: t("summary.thisWeek"),
       value: formatEntryDuration(summary.weekHours),
     },
     {
       icon: TimerReset,
-      label: "Entries",
+      label: t("summary.entries"),
       value: String(summary.entryCount),
     },
   ];
@@ -1457,6 +1896,7 @@ function TimeSummaryStrip({ summary }: { summary: TimeSummary }) {
 }
 
 function SyncPanel({
+  appLocale,
   authForm,
   authMode,
   idleThresholdSeconds,
@@ -1470,7 +1910,9 @@ function SyncPanel({
   onSyncTimer,
   onWorkspaceChange,
   syncMessage,
+  t,
 }: {
+  appLocale: string;
   authForm: AuthForm;
   authMode: AuthMode;
   idleThresholdSeconds: number;
@@ -1484,10 +1926,15 @@ function SyncPanel({
   onSyncTimer: (action: "pull" | "push") => void;
   onWorkspaceChange: (workspaceId: string) => void;
   syncMessage: string;
+  t: Translator;
 }) {
   const activeWorkspace = getActiveWorkspace(miruSession);
   const accountName = getAccountName(miruSession?.user) || "Miru user";
   const accountEmail = getAccountEmail(miruSession?.user);
+  const accountAvatarUrl = getAccountAvatarUrl(
+    miruSession?.user,
+    miruSession?.baseUrl
+  );
   const status = miruSession?.syncStatus ?? "local";
   const StatusIcon =
     status === "offline" || status === "error" ? CloudOff : Cloud;
@@ -1496,15 +1943,18 @@ function SyncPanel({
   if (miruSession?.signedIn) {
     return (
       <section className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border bg-white p-2 shadow-2xl ring-1 ring-black/10">
-        <div className="rounded-lg bg-muted/40 p-3">
+        <div className="rounded-lg bg-[#f6f4ff] p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground text-sm shadow-sm">
-                {getInitials(accountName || accountEmail || "M")}
-              </div>
+              <AccountAvatar
+                avatarUrl={accountAvatarUrl}
+                email={accountEmail}
+                name={accountName}
+                size="lg"
+              />
               <div className="min-w-0">
                 <p className="truncate font-semibold text-sm">{accountName}</p>
-                <p className="truncate text-muted-foreground text-xs">
+                <p className="truncate font-medium text-foreground/60 text-xs">
                   {accountEmail || "Connected to Miru"}
                 </p>
               </div>
@@ -1516,15 +1966,15 @@ function SyncPanel({
               )}
             >
               <StatusIcon className="size-3" />
-              {formatSyncStatus(status)}
+              {formatSyncStatus(status, t)}
             </span>
           </div>
 
           <div className="mt-3 flex items-start gap-2 rounded-md border bg-background p-2">
             <Building2 className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-muted-foreground text-xs">
-                Workspace
+              <p className="font-medium text-foreground/60 text-xs">
+                {t("sync.workspace")}
               </p>
               {miruSession.workspaces.length > 1 ? (
                 <select
@@ -1551,23 +2001,39 @@ function SyncPanel({
 
         <div className="mt-2 grid gap-1">
           <MenuAction
-            description="Use the current web timer in this desktop tracker."
+            description={t("sync.pullHint")}
             icon={<ArrowDownToLine className="size-4" />}
-            label="Pull timer from Miru"
+            label={t("sync.pull")}
             onClick={() => onSyncTimer("pull")}
           />
           <MenuAction
-            description="Send this desktop timer state to Miru web."
+            description={t("sync.pushHint")}
             icon={<ArrowUpFromLine className="size-4" />}
-            label="Push timer to Miru"
+            label={t("sync.push")}
             onClick={() => onSyncTimer("push")}
           />
         </div>
 
-        <div className="mt-2 rounded-lg border bg-background p-3">
-          <FieldLabel icon={<TimerReset />} label="Idle prompt">
+        <div className="mt-2 grid gap-2 rounded-lg border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <UserRound className="size-4" />
+              </span>
+              <div>
+                <p className="font-semibold text-sm">{t("account.settings")}</p>
+                <p className="font-medium text-foreground/60 text-xs">
+                  {t("settings.language")}: {getLocaleDisplayName(appLocale)}
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-muted px-2 py-1 font-semibold text-[11px] text-foreground/70">
+              {appLocale}
+            </span>
+          </div>
+          <FieldLabel icon={<TimerReset />} label={t("settings.idlePrompt")}>
             <select
-              className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              className="h-9 w-full rounded-md border bg-background px-2 font-medium text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
                 onIdleThresholdChange(Number(event.target.value))
               }
@@ -1585,12 +2051,12 @@ function SyncPanel({
         <div className="mt-2 grid gap-1 border-t pt-2">
           <MenuAction
             icon={<LogOut className="size-4" />}
-            label="Log out"
+            label={t("account.logout")}
             onClick={onLogout}
           />
           <MenuAction
             icon={<Power className="size-4" />}
-            label="Quit Miru Time Tracking"
+            label={t("account.quit")}
             onClick={onQuit}
           />
         </div>
@@ -1633,15 +2099,17 @@ function SyncPanel({
             </button>
           ))}
         </div>
-        <FieldLabel icon={<LinkIcon />} label="Miru URL">
-          <input
-            className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            onChange={(event) =>
-              onAuthFormChange({ ...authForm, baseUrl: event.target.value })
-            }
-            value={authForm.baseUrl}
-          />
-        </FieldLabel>
+        {showMiruBaseUrlField && (
+          <FieldLabel icon={<LinkIcon />} label="Miru URL">
+            <input
+              className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(event) =>
+                onAuthFormChange({ ...authForm, baseUrl: event.target.value })
+              }
+              value={authForm.baseUrl}
+            />
+          </FieldLabel>
+        )}
         <FieldLabel icon={<Mail />} label="Email">
           <input
             className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
@@ -1753,6 +2221,7 @@ function EntryEditorDialog({
   onSave,
   onStart,
   projects,
+  t,
 }: {
   clients: Client[];
   draft: EntryDraft;
@@ -1762,6 +2231,7 @@ function EntryEditorDialog({
   onSave: () => void;
   onStart: () => void;
   projects: Project[];
+  t: Translator;
 }) {
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
@@ -1769,7 +2239,7 @@ function EntryEditorDialog({
         <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b p-3">
           <div />
           <h2 className="font-semibold text-sm">
-            {mode === "edit" ? "Edit Time Entry" : "New Time Entry"}
+            {mode === "edit" ? t("entries.edit") : t("entries.new")}
           </h2>
           <div className="flex justify-end">
             <button
@@ -1784,7 +2254,7 @@ function EntryEditorDialog({
         </div>
 
         <div className="grid gap-3 p-4">
-          <FieldLabel icon={<CalendarDays />} label="Date">
+          <FieldLabel icon={<CalendarDays />} label={t("field.date")}>
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1794,7 +2264,7 @@ function EntryEditorDialog({
               value={draft.date}
             />
           </FieldLabel>
-          <FieldLabel icon={<FolderKanban />} label="Project">
+          <FieldLabel icon={<FolderKanban />} label={t("field.project")}>
             <Select
               onChange={(value) => onChange({ ...draft, projectId: value })}
               value={draft.projectId}
@@ -1808,19 +2278,19 @@ function EntryEditorDialog({
             </Select>
           </FieldLabel>
           <div className="grid grid-cols-[1fr_6rem] gap-2">
-            <FieldLabel icon={<ListChecks />} label="Task">
+            <FieldLabel icon={<ListChecks />} label={t("field.task")}>
               <Select
                 onChange={(value) => onChange({ ...draft, taskId: value })}
                 value={draft.taskId}
               >
                 {tasks.map((task) => (
                   <option key={task.id} value={task.id}>
-                    {task.name}
+                    {getTaskDisplayName(task, t)}
                   </option>
                 ))}
               </Select>
             </FieldLabel>
-            <FieldLabel icon={<Timer />} label="Time">
+            <FieldLabel icon={<Timer />} label={t("field.time")}>
               <input
                 className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 onChange={(event) =>
@@ -1831,13 +2301,13 @@ function EntryEditorDialog({
               />
             </FieldLabel>
           </div>
-          <FieldLabel icon={<FileText />} label="Notes">
+          <FieldLabel icon={<FileText />} label={t("field.notes")}>
             <textarea
               className="min-h-20 resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
                 onChange({ ...draft, notes: event.target.value })
               }
-              placeholder="Notes (optional)"
+              placeholder={t("field.notes")}
               value={draft.notes}
             />
           </FieldLabel>
@@ -1845,11 +2315,11 @@ function EntryEditorDialog({
         <div className="grid grid-cols-2 gap-2 border-t p-3">
           <Button onClick={onSave} variant="outline">
             <Save />
-            Save
+            {t("entries.save")}
           </Button>
           <Button onClick={onStart}>
             <Play />
-            Start timer
+            {t("timer.start")}
           </Button>
         </div>
       </div>
@@ -1868,7 +2338,7 @@ function FieldLabel({
 }) {
   return (
     <div className="grid gap-1.5 text-sm">
-      <span className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs [&_svg]:size-3.5">
+      <span className="flex items-center gap-1.5 font-semibold text-foreground/70 text-xs [&_svg]:size-3.5">
         {icon}
         {label}
       </span>
@@ -1888,13 +2358,139 @@ function Select({
 }) {
   return (
     <select
-      className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+      className="h-9 w-full rounded-md border bg-background px-3 font-medium text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
       onChange={(event) => onChange(event.target.value)}
       value={value}
     >
       {children}
     </select>
   );
+}
+
+function AccountAvatar({
+  avatarUrl,
+  email,
+  name,
+  size = "md",
+}: {
+  avatarUrl: string;
+  email: string;
+  name: string;
+  size?: "lg" | "md" | "sm";
+}) {
+  const sizeClass = {
+    lg: "size-12 rounded-xl text-sm",
+    md: "size-10 rounded-lg text-sm",
+    sm: "size-8 rounded-full text-xs",
+  }[size];
+  const pixelSize = {
+    lg: 48,
+    md: 40,
+    sm: 32,
+  }[size];
+
+  if (avatarUrl) {
+    return (
+      <img
+        alt=""
+        className={cn("shrink-0 object-cover shadow-sm", sizeClass)}
+        height={pixelSize}
+        src={avatarUrl}
+        width={pixelSize}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "grid shrink-0 place-items-center bg-primary font-semibold text-primary-foreground shadow-sm",
+        sizeClass
+      )}
+    >
+      {getInitials(name || email || "M")}
+    </span>
+  );
+}
+
+function createTranslator(locale: string): Translator {
+  const normalizedLocale = normalizeLocale(locale);
+  const baseLocale = normalizedLocale.split("-")[0];
+  const fallback = APP_TRANSLATIONS[DEFAULT_LOCALE] ?? {};
+  const localized = APP_TRANSLATIONS[normalizedLocale] ?? {};
+  const baseLocalized = APP_TRANSLATIONS[baseLocale] ?? {};
+
+  return (key, values = {}) => {
+    const template =
+      localized[key] ?? baseLocalized[key] ?? fallback[key] ?? key;
+
+    return Object.entries(values).reduce(
+      (copy, [name, value]) => copy.replaceAll(`{${name}}`, String(value)),
+      template
+    );
+  };
+}
+
+function getAppLocale(user: Record<string, unknown> | null | undefined) {
+  const userLocale =
+    user &&
+    (getStringValue(user, "locale") ||
+      getNestedStringValue(user, ["settings", "locale"]) ||
+      getNestedStringValue(user, ["settings", "language"]));
+  const storedLocale = window.localStorage.getItem("miru-time-locale") ?? "";
+  const browserLocale = navigator.language;
+
+  return normalizeLocale(userLocale || storedLocale || browserLocale);
+}
+
+function normalizeLocale(value: string) {
+  const candidate = value.trim();
+
+  if (!candidate || candidate.toLowerCase() === "en") {
+    return DEFAULT_LOCALE;
+  }
+
+  const exact = SUPPORTED_LOCALES.find(
+    (locale) => locale.toLowerCase() === candidate.toLowerCase()
+  );
+
+  if (exact) {
+    return exact;
+  }
+
+  const base = candidate.split("-")[0]?.toLowerCase();
+  const baseMatch = SUPPORTED_LOCALES.find(
+    (locale) => locale.toLowerCase() === base
+  );
+
+  return baseMatch ?? DEFAULT_LOCALE;
+}
+
+function getNestedStringValue(source: Record<string, unknown>, keys: string[]) {
+  let current: unknown = source;
+
+  for (const key of keys) {
+    if (!(current && typeof current === "object")) {
+      return "";
+    }
+
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return typeof current === "string" ? current : "";
+}
+
+function getLocaleDisplayName(locale: string) {
+  try {
+    const names = new Intl.DisplayNames([locale], { type: "language" });
+    return names.of(locale) ?? locale;
+  } catch {
+    return locale;
+  }
+}
+
+function getTaskDisplayName(task: Task, t: Translator) {
+  return task.id === "time" ? t("task.timeEntry") : task.name;
 }
 
 function readStoredEntries() {
@@ -1956,20 +2552,20 @@ function getTimerDotClass(timer: TimerState) {
   return "bg-muted-foreground/40";
 }
 
-function getTimerStatusLabel(timer: TimerState) {
+function getTimerStatusLabel(timer: TimerState, t: Translator) {
   if (timer.idle) {
-    return "Idle detected";
+    return t("timer.idle");
   }
 
   if (timer.running) {
-    return "Tracking now";
+    return t("timer.running");
   }
 
   if (timer.elapsedSeconds > 0) {
-    return "Paused";
+    return t("timer.pause");
   }
 
-  return "Ready";
+  return t("timer.ready");
 }
 
 function getSyncStatusClass(status: MiruSessionState["syncStatus"]) {
@@ -2046,6 +2642,39 @@ function getAccountEmail(user: Record<string, unknown> | null | undefined) {
   return user ? getStringValue(user, "email") : "";
 }
 
+function getAccountAvatarUrl(
+  user: Record<string, unknown> | null | undefined,
+  baseUrl = ""
+) {
+  if (!user) {
+    return "";
+  }
+
+  const avatarUrl =
+    getStringValue(user, "avatar_url") ||
+    getStringValue(user, "avatarUrl") ||
+    getStringValue(user, "profile_image_url") ||
+    getStringValue(user, "profileImageUrl") ||
+    getStringValue(user, "image_url") ||
+    getStringValue(user, "imageUrl") ||
+    getStringValue(user, "photo_url") ||
+    getStringValue(user, "photoUrl");
+
+  return resolveMiruAssetUrl(avatarUrl, baseUrl);
+}
+
+function resolveMiruAssetUrl(value: string, baseUrl: string) {
+  if (!value || ABSOLUTE_ASSET_PATTERN.test(value)) {
+    return value;
+  }
+
+  try {
+    return new URL(value, baseUrl).href;
+  } catch {
+    return value;
+  }
+}
+
 function getStringValue(source: Record<string, unknown>, key: string) {
   const value = source[key];
   return typeof value === "string" ? value : "";
@@ -2062,16 +2691,11 @@ function getInitials(value: string) {
   );
 }
 
-function formatSyncStatus(status: MiruSessionState["syncStatus"]) {
-  const labels: Record<MiruSessionState["syncStatus"], string> = {
-    error: "Error",
-    local: "Local",
-    offline: "Offline",
-    synced: "Synced",
-    syncing: "Syncing",
-  };
-
-  return labels[status];
+function formatSyncStatus(
+  status: MiruSessionState["syncStatus"],
+  t: Translator
+) {
+  return t(`sync.status.${status}` as I18nKey);
 }
 
 function formatDuration(seconds: number) {
@@ -2110,20 +2734,16 @@ function parseHoursInput(value: string) {
   return Number.isFinite(decimal) ? decimal : 0;
 }
 
-function formatLongDuration(milliseconds: number) {
+function formatCompactDuration(milliseconds: number) {
   const totalMinutes = Math.max(1, Math.round(milliseconds / 60_000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
   if (hours === 0) {
-    return `${minutes} min`;
+    return `${minutes}m`;
   }
 
-  if (minutes === 0) {
-    return `${hours} hr`;
-  }
-
-  return `${hours} hr ${minutes} min`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
 function formatHours(value: number) {

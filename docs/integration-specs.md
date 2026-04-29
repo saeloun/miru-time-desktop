@@ -7,10 +7,12 @@ The integration suite uses Playwright to launch the packaged Electron runtime in
 - App renders the Miru time tracking shell.
 - In-app timer starts and pauses through the shared desktop timer IPC.
 - Native tray title and menu expose timer state plus Miru time summary.
-- Manual time entry can be added from the Harvest-style entry dialog.
+- Manual time entry can be added, updated, and deleted from the compact entry dialog.
 - Existing entry can be resumed into the current desktop timer.
 - Idle recovery supports remove-and-continue, remove-and-start-new, and ignore-and-continue.
 - Timer context persists across Electron relaunches.
+- Signed-in account menu opens, closes from Escape/outside click, resolves Miru avatar URLs, and logs out.
+- Signed-in locale from the Miru user payload drives core app labels.
 
 ## Running
 
@@ -25,7 +27,7 @@ The test process sets:
 
 ## Native UI Scope
 
-The delete flow uses an Electron native dialog in normal app usage. Automated specs avoid destructive confirmation in the happy path and cover the underlying entry creation/resume behavior through the renderer.
+The desktop timer, account menu, idle recovery, and entry editor are renderer-owned Electron UI surfaces. The delete flow still uses an Electron native confirmation in normal app usage. Automated specs avoid destructive confirmation in the happy path and cover the underlying entry creation/resume behavior through the renderer.
 
 ## API Sync Scope
 

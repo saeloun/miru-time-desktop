@@ -37,6 +37,7 @@ interface MiruSessionState {
 
 interface Window {
   miruApi: {
+    deleteTimerEntry: (entryId: number | string) => Promise<unknown>;
     getTimeTracking: (payload?: {
       from?: string;
       to?: string;
@@ -57,6 +58,13 @@ interface Window {
       userId?: number | string;
       workDate?: string;
     }) => Promise<unknown>;
+    updateTimerEntry: (payload: {
+      duration?: number;
+      entryId?: number | string;
+      note?: string;
+      projectId?: number | string;
+      workDate?: string;
+    }) => Promise<unknown>;
     signup: (payload: {
       baseUrl?: string;
       email: string;
@@ -70,12 +78,6 @@ interface Window {
     syncCurrentTimer: (
       action?: "pull" | "push"
     ) => Promise<{ session: MiruSessionState; timer: MiruTimerState }>;
-  };
-  nativeDialog: {
-    closeWindow: () => Promise<void>;
-    confirmDeleteTimeEntry: () => Promise<boolean>;
-    minimizeWindow: () => Promise<void>;
-    quitApp: () => Promise<void>;
   };
   miruTimer: {
     applyIdleAction: (
@@ -105,6 +107,12 @@ interface Window {
     }) => Promise<MiruTimerState>;
     start: () => Promise<MiruTimerState>;
     toggle: () => Promise<MiruTimerState>;
+  };
+  nativeDialog: {
+    closeWindow: () => Promise<void>;
+    confirmDeleteTimeEntry: () => Promise<boolean>;
+    minimizeWindow: () => Promise<void>;
+    quitApp: () => Promise<void>;
   };
 }
 

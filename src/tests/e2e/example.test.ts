@@ -12,6 +12,15 @@ import { findLatestBuild, parseElectronApp } from "electron-playwright-helpers";
 
 let electronApp: ElectronApplication;
 const userDataDir = mkdtempSync(path.join(tmpdir(), "miru-time-desktop-e2e-"));
+const ADMIN_SURFACE_PATTERNS = [
+  /\bDashboard\b/,
+  /\bBillable\b/,
+  /\bBilling\b/,
+  /\bInvoices?\b/,
+  /\bReports?\b/,
+  /\bTeam\b/,
+  /\$[0-9]/,
+];
 
 async function launchApp() {
   const latestBuild = findLatestBuild();
@@ -33,7 +42,7 @@ async function launchApp() {
   });
 }
 
-function seedSignedInAccount() {
+function seedSignedInAccount(locale = "en-US") {
   writeFileSync(
     path.join(userDataDir, "miru-account.json"),
     JSON.stringify(
@@ -43,10 +52,12 @@ function seedSignedInAccount() {
         baseUrl: "http://127.0.0.1:65535",
         currentWorkspaceId: 1,
         user: {
+          avatar_url: "/rails/active_storage/avatars/mira.png",
           email: "employee@miru.test",
           first_name: "Mira",
           id: 1,
           last_name: "Employee",
+          locale,
         },
         workspaces: [{ id: 1, name: "Miru QA" }],
       },
@@ -76,22 +87,22 @@ test("renders the app shell", async () => {
 test("starts on onboarding when signed out", async () => {
   const page: Page = await electronApp.firstWindow();
 
-  await page.waitForSelector("text=Log in to Miru");
+  await page.waitForSelector("text=Log in");
 
   const bodyText = await page.locator("body").innerText();
   expect(bodyText).toContain("Employee tracker");
-  expect(bodyText).toContain("Continue with Google");
+  expect(bodyText).toContain("Open Google sign-in");
   expect(bodyText).toContain("Connect to your workspace before tracking time.");
+  expect(bodyText).not.toContain("Miru URL");
   expect(bodyText).not.toContain("Add New Entry");
   expect(bodyText).not.toContain("Northstar Labs");
   expect(bodyText).not.toContain("Platform redesign");
-  expect(bodyText).not.toMatch(/\bDashboard\b/);
-  expect(bodyText).not.toMatch(/\bBillable\b/);
-  expect(bodyText).not.toMatch(/\bBilling\b/);
-  expect(bodyText).not.toMatch(/\bInvoices?\b/);
-  expect(bodyText).not.toMatch(/\bReports?\b/);
-  expect(bodyText).not.toMatch(/\bTeam\b/);
-  expect(bodyText).not.toMatch(/\$[0-9]/);
+  for (const pattern of ADMIN_SURFACE_PATTERNS) {
+    expect(bodyText).not.toMatch(pattern);
+  }
+
+  const session = await page.evaluate(() => window.miruApi.getSession());
+  expect(session.baseUrl).toBe("https://app.miru.so");
 });
 
 test("runs the shared desktop timer behind onboarding", async () => {
@@ -167,17 +178,19 @@ test("keeps the native tray timer title visible", async () => {
       workspaceName: "Saeloun Studio",
     })
   );
-  await expect.poll(trayTitle).toContain("Start");
-  await expect.poll(trayTitle).toContain("--:--");
+  await expect.poll(trayTitle).toBe("--:--:--");
   await expect.poll(async () => (await trayImageState()).empty).toBe(false);
   await expect.poll(trayMenuLabels).toContain("Today: 2h");
   await expect.poll(trayMenuLabels).toContain("Week: 9h");
 
   await page.evaluate(() => window.miruTimer.start());
-  await expect.poll(trayTitle).toContain("Pause");
+  await expect.poll(trayTitle).toContain("00:00:");
 
   await page.evaluate(() => window.miruTimer.pause());
-  await expect.poll(trayTitle).toContain("Resume");
+  await expect.poll(async () => (await trayTitle()).length).toBe(8);
+  expect(await trayTitle()).not.toContain("Pause");
+  expect(await trayTitle()).not.toContain("Resume");
+  expect(await trayTitle()).not.toContain("Start");
 
   await page.evaluate(() => window.miruTimer.reset());
 });
@@ -255,6 +268,10 @@ test("closes account menu and logs out from signed-in state", async () => {
   });
 
   await expect(accountButton).toBeVisible();
+  await expect(accountButton.locator("img")).toHaveAttribute(
+    "src",
+    "http://127.0.0.1:65535/rails/active_storage/avatars/mira.png"
+  );
   await accountButton.click();
   await expect(accountMenu).toBeVisible();
 
@@ -268,6 +285,19 @@ test("closes account menu and logs out from signed-in state", async () => {
 
   await accountButton.click();
   await page.getByRole("button", { name: "Log out" }).click();
-  await page.waitForSelector("text=Log in to Miru");
+  await page.waitForSelector("text=Log in");
   await expect(accountButton).toBeHidden();
+});
+
+test("uses the signed-in Miru user locale", async () => {
+  await electronApp.close();
+  seedSignedInAccount("es");
+  await launchApp();
+
+  const page: Page = await electronApp.firstWindow();
+
+  await page.waitForSelector("text=Hoy");
+  await expect(page.getByText("Esta semana")).toBeVisible();
+  await page.getByLabel("Account menu").click();
+  await expect(page.getByText("Idioma")).toBeVisible();
 });

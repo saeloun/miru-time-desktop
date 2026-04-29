@@ -16,6 +16,7 @@ const TIMER_CHANNELS = {
 };
 
 const MIRU_API_CHANNELS = {
+  deleteTimerEntry: "miru-api:delete-timer-entry",
   getTimeTracking: "miru-api:get-time-tracking",
   getSession: "miru-api:get-session",
   googleLogin: "miru-api:google-login",
@@ -25,6 +26,7 @@ const MIRU_API_CHANNELS = {
   signup: "miru-api:signup",
   syncCurrentTimer: "miru-api:sync-current-timer",
   switchWorkspace: "miru-api:switch-workspace",
+  updateTimerEntry: "miru-api:update-timer-entry",
 };
 
 const NATIVE_UI_CHANNELS = {
@@ -64,12 +66,15 @@ contextBridge.exposeInMainWorld("miruTimer", {
 });
 
 contextBridge.exposeInMainWorld("miruApi", {
+  deleteTimerEntry: (entryId: number | string) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.deleteTimerEntry, entryId),
   getTimeTracking: (payload: unknown) =>
     ipcRenderer.invoke(MIRU_API_CHANNELS.getTimeTracking, payload),
   getSession: () => ipcRenderer.invoke(MIRU_API_CHANNELS.getSession),
   googleLogin: (baseUrl?: string) =>
     ipcRenderer.invoke(MIRU_API_CHANNELS.googleLogin, baseUrl),
-  login: (payload: unknown) => ipcRenderer.invoke(MIRU_API_CHANNELS.login, payload),
+  login: (payload: unknown) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.login, payload),
   logout: () => ipcRenderer.invoke(MIRU_API_CHANNELS.logout),
   saveTimerEntry: (payload: unknown) =>
     ipcRenderer.invoke(MIRU_API_CHANNELS.saveTimerEntry, payload),
@@ -79,6 +84,8 @@ contextBridge.exposeInMainWorld("miruApi", {
     ipcRenderer.invoke(MIRU_API_CHANNELS.switchWorkspace, workspaceId),
   syncCurrentTimer: (action?: "pull" | "push") =>
     ipcRenderer.invoke(MIRU_API_CHANNELS.syncCurrentTimer, action),
+  updateTimerEntry: (payload: unknown) =>
+    ipcRenderer.invoke(MIRU_API_CHANNELS.updateTimerEntry, payload),
 });
 
 contextBridge.exposeInMainWorld("nativeDialog", {

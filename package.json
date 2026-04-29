@@ -1,10 +1,24 @@
 {
   "name": "miru-time-tracking",
   "productName": "Miru Time Tracking",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A local-first macOS desktop time tracking app for Miru teams.",
   "main": ".vite/build/main.js",
-  "private": true,
+  "homepage": "https://app.miru.so",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vipulnsward/miru-time-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vipulnsward/miru-time-desktop/issues"
+  },
+  "keywords": [
+    "miru",
+    "time-tracking",
+    "electron",
+    "macos",
+    "desktop"
+  ],
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",

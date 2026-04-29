@@ -2,6 +2,8 @@
 
 Miru Time Tracking treats the local desktop timer as the source of truth while the app is offline. When a Miru session exists, the desktop app can push or pull the current timer through the API bridge exposed as `window.miruApi`.
 
+Production builds connect to Miru web at `https://app.miru.so`. Local and self-hosted endpoints are development overrides through `MIRU_API_BASE_URL`, `MIRU_SHOW_BASE_URL_FIELD`, and `MIRU_ALLOW_BASE_URL_OVERRIDE`.
+
 ## Electron Boundary
 
 Renderer calls:
