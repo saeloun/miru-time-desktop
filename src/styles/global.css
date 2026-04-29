@@ -140,3 +140,127 @@
     -webkit-app-region: no-drag;
   }
 }
+
+@layer components {
+  .motion-fade-up {
+    animation: miru-fade-up 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-popover {
+    transform-origin: top right;
+    animation: miru-popover-in 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-dialog {
+    animation: miru-dialog-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .status-dot-running {
+    animation: miru-status-pulse 1.45s ease-in-out infinite;
+  }
+
+  .status-dot-idle {
+    animation: miru-idle-pulse 950ms ease-in-out infinite;
+  }
+
+  .interactive-lift {
+    transition:
+      transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .interactive-lift:hover {
+    transform: translateY(-1px);
+  }
+
+  .interactive-lift:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .icon-motion svg {
+    transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .icon-motion:hover svg {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes miru-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes miru-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes miru-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes miru-status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.38);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgb(16 185 129 / 0);
+    transform: scale(1.08);
+  }
+}
+
+@keyframes miru-idle-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgb(245 158 11 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-fade-up,
+  .motion-popover,
+  .motion-dialog,
+  .status-dot-running,
+  .status-dot-idle {
+    animation: none;
+  }
+
+  .interactive-lift,
+  .icon-motion svg {
+    transition: none;
+  }
+
+  .interactive-lift:hover,
+  .interactive-lift:active,
+  .icon-motion:hover svg {
+    transform: none;
+  }
+}

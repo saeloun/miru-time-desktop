@@ -4,12 +4,19 @@ import {
   ArrowUpFromLine,
   Building2,
   CalendarDays,
+  CalendarPlus,
   Check,
   Clock3,
   Cloud,
   CloudOff,
+  FileText,
+  FolderKanban,
+  Link as LinkIcon,
+  ListChecks,
+  LockKeyhole,
   LogIn,
   LogOut,
+  Mail,
   Pause,
   Pencil,
   Play,
@@ -17,13 +24,23 @@ import {
   Power,
   RefreshCw,
   RotateCcw,
+  Save,
   Square,
+  Timer,
   TimerReset,
   Trash2,
   UserRound,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 
@@ -107,6 +124,7 @@ const miruLogoUrl = new URL("../assets/miru-time-icon.svg", import.meta.url)
 const tasks: Task[] = [{ id: "time", name: "Time entry" }];
 
 const todayIso = new Date().toISOString().slice(0, 10);
+const INITIALS_SPLIT_PATTERN = /\s+/;
 
 const initialTimer: TimerState = {
   billable: false,
@@ -163,177 +181,40 @@ function HomePage() {
   const [miruSession, setMiruSession] = useState<MiruSessionState | null>(null);
   const [showSync, setShowSync] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const syncMenuRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    window.localStorage.setItem("pulse-time-entries", JSON.stringify(entries));
-  }, [entries]);
+  const syncDesktopTimer = useCallback((state: MiruTimerState) => {
+    setTimer((current) => {
+      const nextIdleDuration = state.idle
+        ? Math.floor(state.idle.durationMs / 1000)
+        : null;
+      const currentIdleDuration = current.idle
+        ? Math.floor(current.idle.durationMs / 1000)
+        : null;
+      const nextIdlePrompted = state.idle?.prompted ?? null;
+      const currentIdlePrompted = current.idle?.prompted ?? null;
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      "pulse-timer",
-      JSON.stringify({
-        billable: false,
-        notes: timer.notes,
-        projectId: timer.projectId,
-        taskId: timer.taskId,
-      })
-    );
-  }, [timer.notes, timer.projectId, timer.taskId]);
-
-  useEffect(() => {
-    if (!showSync) {
-      return;
-    }
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowSync(false);
+      if (
+        current.elapsedSeconds === state.elapsedSeconds &&
+        current.running === state.running &&
+        current.idleThresholdSeconds === state.idleThresholdSeconds &&
+        currentIdleDuration === nextIdleDuration &&
+        currentIdlePrompted === nextIdlePrompted
+      ) {
+        return current;
       }
-    };
 
-    window.addEventListener("keydown", closeOnEscape);
-
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [showSync]);
-
-  useEffect(() => {
-    window.miruTimer
-      .getState()
-      .then(syncDesktopTimer)
-      .catch((error) => {
-        console.error("Failed to load desktop timer state", error);
-      });
-
-    return window.miruTimer.onStateChange(syncDesktopTimer);
+      return {
+        ...current,
+        elapsedSeconds: state.elapsedSeconds,
+        idle: state.idle,
+        idleThresholdSeconds: state.idleThresholdSeconds,
+        running: state.running,
+      };
+    });
   }, []);
 
-  useEffect(() => {
-    window.miruApi
-      .getSession()
-      .then((session) => {
-        setMiruSession(session);
-        setAuthForm((current) => ({ ...current, baseUrl: session.baseUrl }));
-      })
-      .catch((error) => {
-        console.error("Failed to load Miru session", error);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!miruSession?.signedIn) {
-      return;
-    }
-
-    loadTimeTracking()
-      .then(() => setSyncMessage(""))
-      .catch((error) => {
-        setSyncMessage(
-          error instanceof Error ? error.message : "Failed to load Miru data."
-        );
-      });
-  }, [miruSession?.signedIn]);
-
-  useEffect(() => {
-    if (!miruSession?.signedIn || projects.length === 0) {
-      return;
-    }
-
-    const project = projectById(timer.projectId, projects) ?? projects[0];
-    const task = taskById(timer.taskId) ?? tasks[0];
-
-    window.miruTimer
-      .setContext({
-        billable: false,
-        notes: timer.notes,
-        projectName: `${clientById(project.clientId, clients)?.name ?? "Miru"} / ${project.name}`,
-        taskName: task.name,
-      })
-      .then(syncDesktopTimer)
-      .catch((error) => {
-        console.error("Failed to sync desktop timer context", error);
-      });
-  }, [
-    clients,
-    miruSession?.signedIn,
-    projects,
-    timer.notes,
-    timer.projectId,
-    timer.taskId,
-  ]);
-
-  const selectedProject = projectById(timer.projectId, projects) ?? projects[0];
-  const selectedClient = selectedProject
-    ? clientById(selectedProject.clientId, clients)
-    : null;
-  const selectedTask = taskById(timer.taskId) ?? tasks[0];
-  const selectedEntries = useMemo(
-    () => entries.filter((entry) => entry.date === selectedDate),
-    [entries, selectedDate]
-  );
-  const selectedDayHours = selectedEntries.reduce(
-    (total, entry) => total + entry.hours,
-    0
-  );
-  const weekRange = useMemo(() => getWeekRange(todayIso), []);
-  const runningTimerHours = timer.elapsedSeconds / 3600;
-  const todaySavedHours = sumEntryHoursForRange(entries, todayIso, todayIso);
-  const weekSavedHours = sumEntryHoursForRange(
-    entries,
-    weekRange.start,
-    weekRange.end
-  );
-  const timeSummary: TimeSummary = {
-    entryCount: entries.length,
-    selectedDayHours:
-      selectedDate === todayIso
-        ? selectedDayHours + runningTimerHours
-        : selectedDayHours,
-    todayHours: todaySavedHours + runningTimerHours,
-    weekHours: weekSavedHours + runningTimerHours,
-    weekRangeLabel: formatWeekRange(weekRange.start, weekRange.end),
-  };
-  const activeWorkspace = getActiveWorkspace(miruSession);
-  const accountLabel = getAccountName(miruSession?.user);
-  const accountEmail = getAccountEmail(miruSession?.user);
-
-  useEffect(() => {
-    window.miruTimer
-      .setSummary({
-        entryCount: timeSummary.entryCount,
-        selectedDateLabel: dayTitle(selectedDate),
-        selectedDateMinutes: Math.round(timeSummary.selectedDayHours * 60),
-        syncStatus: miruSession?.syncStatus ?? "local",
-        todayMinutes: Math.round(timeSummary.todayHours * 60),
-        userLabel: accountLabel || accountEmail,
-        weekMinutes: Math.round(timeSummary.weekHours * 60),
-        workspaceName: activeWorkspace?.name ?? "",
-      })
-      .catch((error) => {
-        console.error("Failed to sync desktop timer summary", error);
-      });
-  }, [
-    accountEmail,
-    accountLabel,
-    activeWorkspace?.name,
-    miruSession?.syncStatus,
-    selectedDate,
-    timeSummary.entryCount,
-    timeSummary.selectedDayHours,
-    timeSummary.todayHours,
-    timeSummary.weekHours,
-  ]);
-
-  function syncDesktopTimer(state: MiruTimerState) {
-    setTimer((current) => ({
-      ...current,
-      elapsedSeconds: state.elapsedSeconds,
-      idle: state.idle,
-      idleThresholdSeconds: state.idleThresholdSeconds,
-      running: state.running,
-    }));
-  }
-
-  async function loadTimeTracking() {
+  const loadTimeTracking = useCallback(async () => {
     const payload = await window.miruApi.getTimeTracking({
       from: shiftDate(todayIso, -45),
       to: shiftDate(todayIso, 45),
@@ -384,7 +265,188 @@ function HomePage() {
         : (nextProjects[0]?.id ?? ""),
       taskId: "time",
     }));
-  }
+  }, [miruSession?.user?.id]);
+
+  useEffect(() => {
+    window.localStorage.setItem("pulse-time-entries", JSON.stringify(entries));
+  }, [entries]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "pulse-timer",
+      JSON.stringify({
+        billable: false,
+        notes: timer.notes,
+        projectId: timer.projectId,
+        taskId: timer.taskId,
+      })
+    );
+  }, [timer.notes, timer.projectId, timer.taskId]);
+
+  useEffect(() => {
+    if (!showSync) {
+      return;
+    }
+
+    syncMenuRef.current?.focus();
+
+    // The account menu is an overlay; keep Escape scoped to the mounted menu.
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowSync(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscapeKey);
+
+    return () => window.removeEventListener("keydown", handleEscapeKey);
+  }, [showSync]);
+
+  useEffect(() => {
+    window.miruTimer
+      .getState()
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to load desktop timer state", error);
+      });
+
+    return window.miruTimer.onStateChange(syncDesktopTimer);
+  }, [syncDesktopTimer]);
+
+  useEffect(() => {
+    window.miruApi
+      .getSession()
+      .then((session) => {
+        setMiruSession(session);
+        setAuthForm((current) => ({ ...current, baseUrl: session.baseUrl }));
+      })
+      .catch((error) => {
+        console.error("Failed to load Miru session", error);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!miruSession?.signedIn) {
+      return;
+    }
+
+    loadTimeTracking()
+      .then(() => setSyncMessage(""))
+      .catch((error) => {
+        setSyncMessage(
+          error instanceof Error ? error.message : "Failed to load Miru data."
+        );
+      });
+  }, [loadTimeTracking, miruSession?.signedIn]);
+
+  useEffect(() => {
+    if (!miruSession?.signedIn || projects.length === 0) {
+      return;
+    }
+
+    const project = projectById(timer.projectId, projects) ?? projects[0];
+    const task = taskById(timer.taskId) ?? tasks[0];
+
+    window.miruTimer
+      .setContext({
+        billable: false,
+        notes: timer.notes,
+        projectName: `${clientById(project.clientId, clients)?.name ?? "Miru"} / ${project.name}`,
+        taskName: task.name,
+      })
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to sync desktop timer context", error);
+      });
+  }, [
+    clients,
+    miruSession?.signedIn,
+    projects,
+    timer.notes,
+    timer.projectId,
+    timer.taskId,
+    syncDesktopTimer,
+  ]);
+
+  const selectedProject = projectById(timer.projectId, projects) ?? projects[0];
+  const selectedClient = selectedProject
+    ? clientById(selectedProject.clientId, clients)
+    : null;
+  const selectedTask = taskById(timer.taskId) ?? tasks[0];
+  const selectedEntries = useMemo(
+    () => entries.filter((entry) => entry.date === selectedDate),
+    [entries, selectedDate]
+  );
+  const selectedDayHours = useMemo(
+    () => selectedEntries.reduce((total, entry) => total + entry.hours, 0),
+    [selectedEntries]
+  );
+  const weekRange = useMemo(() => getWeekRange(todayIso), []);
+  const runningTimerHours = timer.elapsedSeconds / 3600;
+  const todaySavedHours = useMemo(
+    () => sumEntryHoursForRange(entries, todayIso, todayIso),
+    [entries]
+  );
+  const weekSavedHours = useMemo(
+    () => sumEntryHoursForRange(entries, weekRange.start, weekRange.end),
+    [entries, weekRange.end, weekRange.start]
+  );
+  const timeSummary: TimeSummary = useMemo(
+    () => ({
+      entryCount: entries.length,
+      selectedDayHours:
+        selectedDate === todayIso
+          ? selectedDayHours + runningTimerHours
+          : selectedDayHours,
+      todayHours: todaySavedHours + runningTimerHours,
+      weekHours: weekSavedHours + runningTimerHours,
+      weekRangeLabel: formatWeekRange(weekRange.start, weekRange.end),
+    }),
+    [
+      entries.length,
+      runningTimerHours,
+      selectedDate,
+      selectedDayHours,
+      todaySavedHours,
+      weekRange.end,
+      weekRange.start,
+      weekSavedHours,
+    ]
+  );
+  const activeWorkspace = getActiveWorkspace(miruSession);
+  const accountLabel = getAccountName(miruSession?.user);
+  const accountEmail = getAccountEmail(miruSession?.user);
+
+  const timerPanelClass = getTimerPanelClass(timer);
+  const timerDotClass = getTimerDotClass(timer);
+  const timerStatusLabel = getTimerStatusLabel(timer);
+
+  useEffect(() => {
+    window.miruTimer
+      .setSummary({
+        entryCount: timeSummary.entryCount,
+        selectedDateLabel: dayTitle(selectedDate),
+        selectedDateMinutes: Math.round(timeSummary.selectedDayHours * 60),
+        syncStatus: miruSession?.syncStatus ?? "local",
+        todayMinutes: Math.round(timeSummary.todayHours * 60),
+        userLabel: accountLabel || accountEmail,
+        weekMinutes: Math.round(timeSummary.weekHours * 60),
+        workspaceName: activeWorkspace?.name ?? "",
+      })
+      .catch((error) => {
+        console.error("Failed to sync desktop timer summary", error);
+      });
+  }, [
+    accountEmail,
+    accountLabel,
+    activeWorkspace?.name,
+    miruSession?.syncStatus,
+    selectedDate,
+    timeSummary.entryCount,
+    timeSummary.selectedDayHours,
+    timeSummary.todayHours,
+    timeSummary.weekHours,
+  ]);
 
   function toggleTimer() {
     window.miruTimer
@@ -633,8 +695,10 @@ function HomePage() {
         <div className="flex min-w-0 items-center gap-2">
           <img
             alt=""
-            className="size-7 shrink-0 rounded-md shadow-sm"
+            className="motion-fade-up size-7 shrink-0 rounded-md shadow-sm"
+            height={28}
             src={miruLogoUrl}
+            width={28}
           />
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-sm">
@@ -643,10 +707,12 @@ function HomePage() {
             <p className="text-muted-foreground text-xs">Employee tracker</p>
           </div>
         </div>
+        {/* Signed-out users stay in onboarding; the header menu is only account actions. */}
         {miruSession?.signedIn && (
           <button
+            aria-label="Account menu"
             className={cn(
-              "no-drag flex size-8 items-center justify-center rounded-md border text-muted-foreground transition",
+              "no-drag interactive-lift icon-motion flex size-8 items-center justify-center rounded-md border text-muted-foreground transition",
               showSync
                 ? "border-primary/30 bg-primary/10 text-primary"
                 : "border-transparent hover:border-border hover:bg-muted hover:text-foreground"
@@ -660,180 +726,42 @@ function HomePage() {
         )}
       </header>
 
-      {!miruSession?.signedIn ? (
-        <OnboardingPanel
-          authForm={authForm}
-          authMode={authMode}
-          onAuthFormChange={setAuthForm}
-          onAuthModeChange={setAuthMode}
-          onGoogleLogin={openGoogleLogin}
-          onSubmitAuth={submitMiruAuth}
-          syncMessage={syncMessage}
-        />
-      ) : (
+      {miruSession?.signedIn ? (
         <>
-          <section
-            className={cn(
-              "shrink-0 border-b px-4 py-4 transition-colors",
-              timer.idle
-                ? "border-amber-200 bg-amber-50"
-                : timer.running
-                  ? "border-[#261257] bg-[#211044] text-white"
-                  : timer.elapsedSeconds > 0
-                    ? "border-[#d9d0ff] bg-[#f5f2ff]"
-                    : "bg-background"
-            )}
-          >
-            <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-xs">
-                  <span
-                    className={cn(
-                      "size-2 rounded-full",
-                      timer.running
-                        ? "bg-emerald-500"
-                        : timer.elapsedSeconds > 0
-                          ? "bg-primary"
-                          : "bg-muted-foreground/40"
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "font-medium",
-                      timer.running ? "text-white/80" : "text-muted-foreground"
-                    )}
-                  >
-                    {timer.idle
-                      ? "Idle detected"
-                      : timer.running
-                        ? "Tracking now"
-                        : timer.elapsedSeconds > 0
-                          ? "Paused"
-                          : "Ready"}
-                  </span>
-                </div>
-                <p className="mt-1 font-mono font-semibold text-4xl tracking-normal tabular-nums">
-                  {formatDuration(timer.elapsedSeconds)}
-                </p>
-                <p
-                  className={cn(
-                    "mt-1 truncate text-xs",
-                    timer.running ? "text-white/70" : "text-muted-foreground"
-                  )}
-                >
-                  {selectedClient?.name ?? "Miru"} /{" "}
-                  {selectedProject?.name ?? "Select project"} /{" "}
-                  {selectedTask.name}
-                </p>
-              </div>
-              <Button
-                className={cn(
-                  "size-14 rounded-full shadow-sm",
-                  timer.running
-                    ? "bg-white text-[#211044] hover:bg-white/90"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-                onClick={toggleTimer}
-                size="icon"
-                title={timer.running ? "Pause timer" : "Start timer"}
-                type="button"
-              >
-                {timer.running ? (
-                  <Pause className="size-5" />
-                ) : (
-                  <Play className="size-5" />
-                )}
-              </Button>
-            </div>
-            <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-              <Button
-                className={cn(
-                  "h-9",
-                  timer.running
-                    ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-                    : ""
-                )}
-                disabled={timer.elapsedSeconds < 60 || !selectedProject}
-                onClick={saveTimerEntry}
-                variant="outline"
-              >
-                <Square />
-                Stop and save
-              </Button>
-              <Button
-                className={cn(
-                  "h-9",
-                  timer.running
-                    ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-                    : ""
-                )}
-                disabled={timer.elapsedSeconds === 0}
-                onClick={resetTimer}
-                title="Reset timer"
-                variant="outline"
-              >
-                <RotateCcw />
-              </Button>
-            </div>
-          </section>
+          <TimerHeroPanel
+            onResetTimer={resetTimer}
+            onSaveTimerEntry={saveTimerEntry}
+            onToggleTimer={toggleTimer}
+            selectedClient={selectedClient}
+            selectedProject={selectedProject}
+            selectedTask={selectedTask}
+            timer={timer}
+            timerDotClass={timerDotClass}
+            timerPanelClass={timerPanelClass}
+            timerStatusLabel={timerStatusLabel}
+          />
 
           <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
             <TimeSummaryStrip summary={timeSummary} />
 
-            <section className="rounded-lg border bg-background shadow-sm">
-              <div className="border-b p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-muted-foreground text-xs">
-                      Work details
-                    </p>
-                    <p className="truncate font-semibold text-base">
-                      {selectedClient?.name ?? "Miru"} /{" "}
-                      {selectedProject?.name ?? "Select project"}
-                    </p>
-                    <p className="truncate text-muted-foreground text-xs">
-                      {selectedTask.name}
-                    </p>
-                  </div>
-                  <Clock3 className="mt-1 size-5 text-primary" />
-                </div>
-              </div>
-
-              <div className="grid gap-3 p-3">
-                <FieldLabel label="Project">
-                  <Select
-                    onChange={(value) => {
-                      setTimer((current) => ({
-                        ...current,
-                        billable: false,
-                        projectId: value,
-                      }));
-                    }}
-                    value={timer.projectId}
-                  >
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {clientById(project.clientId, clients)?.name ?? "Miru"}{" "}
-                        / {project.name}
-                      </option>
-                    ))}
-                  </Select>
-                </FieldLabel>
-                <FieldLabel label="Notes">
-                  <input
-                    className="h-9 rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
-                    onChange={(event) =>
-                      setTimer((current) => ({
-                        ...current,
-                        notes: event.target.value,
-                      }))
-                    }
-                    placeholder="What are you working on?"
-                    value={timer.notes}
-                  />
-                </FieldLabel>
-              </div>
-            </section>
+            <WorkDetailsPanel
+              clients={clients}
+              onNotesChange={(notes) =>
+                setTimer((current) => ({ ...current, notes }))
+              }
+              onProjectChange={(projectId) =>
+                setTimer((current) => ({
+                  ...current,
+                  billable: false,
+                  projectId,
+                }))
+              }
+              projects={projects}
+              selectedClient={selectedClient}
+              selectedProject={selectedProject}
+              selectedTask={selectedTask}
+              timer={timer}
+            />
 
             {timer.idle && (
               <IdlePrompt
@@ -842,99 +770,43 @@ function HomePage() {
               />
             )}
 
-            <section className="mt-3 min-h-0 flex-1 rounded-lg border bg-background shadow-sm">
-              <div className="flex items-center justify-between border-b p-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="size-4 text-primary" />
-                    <p className="font-semibold text-sm">
-                      {dayTitle(selectedDate)}
-                    </p>
-                  </div>
-                  <p className="font-mono text-muted-foreground text-xs tabular-nums">
-                    {formatHours(selectedDayHours)}h total
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    className="h-8 w-32 rounded-md border bg-background px-2 text-xs outline-none"
-                    onChange={(event) => setSelectedDate(event.target.value)}
-                    type="date"
-                    value={selectedDate}
-                  />
-                  <Button
-                    className="h-8"
-                    onClick={() => openNewEntry(selectedDate)}
-                    type="button"
-                  >
-                    <Plus />
-                    Add New Entry
-                  </Button>
-                </div>
-              </div>
-
-              {selectedEntries.length === 0 ? (
-                <div className="grid min-h-36 place-items-center px-5 text-center">
-                  <div>
-                    <div className="mx-auto flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Clock3 className="size-5" />
-                    </div>
-                    <p className="mt-3 font-semibold text-sm">
-                      No time tracked for this day
-                    </p>
-                    <p className="mt-1 text-muted-foreground text-xs">
-                      Start the timer above or add a manual entry.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {selectedEntries.map((entry) => (
-                    <TimeEntryRow
-                      clients={clients}
-                      entry={entry}
-                      key={entry.id}
-                      onDelete={deleteEntry}
-                      onEdit={openEditEntry}
-                      onResume={resumeEntry}
-                      projects={projects}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+            <EntriesPanel
+              clients={clients}
+              entries={selectedEntries}
+              onDateChange={setSelectedDate}
+              onDelete={deleteEntry}
+              onEdit={openEditEntry}
+              onNewEntry={openNewEntry}
+              onResume={resumeEntry}
+              projects={projects}
+              selectedDate={selectedDate}
+              selectedDayHours={selectedDayHours}
+            />
           </main>
 
-          {showSync && (
-            <div className="absolute inset-0 z-40">
-              <button
-                aria-label="Close account menu"
-                className="absolute inset-0 bg-black/5"
-                onClick={() => setShowSync(false)}
-                type="button"
-              />
-              <div className="no-drag absolute top-16 right-3 w-[calc(100%-1.5rem)] max-w-sm">
-                <SyncPanel
-                  authForm={authForm}
-                  authMode={authMode}
-                  idleThresholdSeconds={timer.idleThresholdSeconds}
-                  miruSession={miruSession}
-                  onAuthFormChange={setAuthForm}
-                  onAuthModeChange={setAuthMode}
-                  onIdleThresholdChange={changeIdleThreshold}
-                  onLogout={() => {
-                    void logoutMiru();
-                    setShowSync(false);
-                  }}
-                  onQuit={() => window.nativeDialog.quitApp()}
-                  onSubmitAuth={submitMiruAuth}
-                  onSyncTimer={syncMiruTimer}
-                  onWorkspaceChange={switchWorkspace}
-                  syncMessage={syncMessage}
-                />
-              </div>
-            </div>
-          )}
+          <AccountMenuOverlay
+            authForm={authForm}
+            authMode={authMode}
+            idleThresholdSeconds={timer.idleThresholdSeconds}
+            menuRef={syncMenuRef}
+            miruSession={miruSession}
+            onAuthFormChange={setAuthForm}
+            onAuthModeChange={setAuthMode}
+            onClose={() => setShowSync(false)}
+            onIdleThresholdChange={changeIdleThreshold}
+            onLogout={() => {
+              logoutMiru().catch((error) => {
+                console.error("Failed to log out of Miru", error);
+              });
+              setShowSync(false);
+            }}
+            onQuit={() => window.nativeDialog.quitApp()}
+            onSubmitAuth={submitMiruAuth}
+            onSyncTimer={syncMiruTimer}
+            onWorkspaceChange={switchWorkspace}
+            show={showSync}
+            syncMessage={syncMessage}
+          />
 
           {entryDialog && (
             <EntryEditorDialog
@@ -949,7 +821,350 @@ function HomePage() {
             />
           )}
         </>
+      ) : (
+        <OnboardingPanel
+          authForm={authForm}
+          authMode={authMode}
+          onAuthFormChange={setAuthForm}
+          onAuthModeChange={setAuthMode}
+          onGoogleLogin={openGoogleLogin}
+          onSubmitAuth={submitMiruAuth}
+          syncMessage={syncMessage}
+        />
       )}
+    </div>
+  );
+}
+
+function TimerHeroPanel({
+  onResetTimer,
+  onSaveTimerEntry,
+  onToggleTimer,
+  selectedClient,
+  selectedProject,
+  selectedTask,
+  timer,
+  timerDotClass,
+  timerPanelClass,
+  timerStatusLabel,
+}: {
+  onResetTimer: () => void;
+  onSaveTimerEntry: () => void;
+  onToggleTimer: () => void;
+  selectedClient: Client | null;
+  selectedProject: Project | undefined;
+  selectedTask: Task;
+  timer: TimerState;
+  timerDotClass: string;
+  timerPanelClass: string;
+  timerStatusLabel: string;
+}) {
+  const canSave = timer.elapsedSeconds >= 60 && Boolean(selectedProject);
+
+  return (
+    <section
+      className={cn(
+        "motion-fade-up border-b px-4 py-4 transition-colors",
+        timerPanelClass
+      )}
+    >
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <span className={cn("size-2.5 rounded-full", timerDotClass)} />
+        <span>{timerStatusLabel}</span>
+      </div>
+
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono font-semibold text-4xl tabular-nums tracking-normal">
+            {formatDuration(timer.elapsedSeconds)}
+          </p>
+          <p className="mt-1 truncate text-muted-foreground text-sm">
+            {selectedClient?.name ?? "Choose a project"} /{" "}
+            {selectedProject?.name ?? "No project"} / {selectedTask.name}
+          </p>
+        </div>
+        <Button
+          className={cn(
+            "interactive-lift size-12 shrink-0 rounded-full shadow-lg",
+            timer.running
+              ? "bg-white text-[#211044] hover:bg-white/90"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          )}
+          onClick={onToggleTimer}
+          size="icon-lg"
+          title={timer.running ? "Pause timer" : "Start timer"}
+          type="button"
+        >
+          {timer.running ? (
+            <Pause className="size-5" />
+          ) : (
+            <Play className="ml-0.5 size-5" />
+          )}
+        </Button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
+        <Button
+          className="interactive-lift h-9"
+          disabled={!canSave}
+          onClick={onSaveTimerEntry}
+          type="button"
+        >
+          <Square />
+          Stop and save
+        </Button>
+        <Button
+          className="interactive-lift h-9"
+          onClick={onToggleTimer}
+          type="button"
+          variant="outline"
+        >
+          {timer.running ? <Pause /> : <Play />}
+          {timer.running ? "Pause" : "Start"}
+        </Button>
+        <Button
+          className="interactive-lift h-9"
+          onClick={onResetTimer}
+          size="icon-lg"
+          title="Reset timer"
+          type="button"
+          variant="outline"
+        >
+          <RotateCcw />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function WorkDetailsPanel({
+  clients,
+  onNotesChange,
+  onProjectChange,
+  projects,
+  selectedClient,
+  selectedProject,
+  selectedTask,
+  timer,
+}: {
+  clients: Client[];
+  onNotesChange: (notes: string) => void;
+  onProjectChange: (projectId: string) => void;
+  projects: Project[];
+  selectedClient: Client | null;
+  selectedProject: Project | undefined;
+  selectedTask: Task;
+  timer: TimerState;
+}) {
+  return (
+    <section className="rounded-lg border bg-background p-3 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <FolderKanban className="size-4" />
+        </span>
+        <div>
+          <p className="font-semibold text-sm">Work details</p>
+          <p className="text-muted-foreground text-xs">
+            {selectedClient?.name ?? "Select client"} /{" "}
+            {selectedProject?.name ?? "Select project"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <FieldLabel icon={<FolderKanban />} label="Project">
+          <Select onChange={onProjectChange} value={timer.projectId}>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {clientById(project.clientId, clients)?.name ?? "Miru"} /{" "}
+                {project.name}
+              </option>
+            ))}
+          </Select>
+        </FieldLabel>
+
+        <FieldLabel icon={<ListChecks />} label="Task">
+          <Select onChange={() => undefined} value={selectedTask.id}>
+            {tasks.map((task) => (
+              <option key={task.id} value={task.id}>
+                {task.name}
+              </option>
+            ))}
+          </Select>
+        </FieldLabel>
+
+        <FieldLabel icon={<FileText />} label="Notes">
+          <textarea
+            className="min-h-18 resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
+            onChange={(event) => onNotesChange(event.target.value)}
+            placeholder="What are you working on?"
+            value={timer.notes}
+          />
+        </FieldLabel>
+      </div>
+    </section>
+  );
+}
+
+function EntriesPanel({
+  clients,
+  entries,
+  onDateChange,
+  onDelete,
+  onEdit,
+  onNewEntry,
+  onResume,
+  projects,
+  selectedDate,
+  selectedDayHours,
+}: {
+  clients: Client[];
+  entries: TimeEntry[];
+  onDateChange: (date: string) => void;
+  onDelete: (entry: TimeEntry) => void;
+  onEdit: (entry: TimeEntry) => void;
+  onNewEntry: (date: string) => void;
+  onResume: (entry: TimeEntry) => void;
+  projects: Project[];
+  selectedDate: string;
+  selectedDayHours: number;
+}) {
+  return (
+    <section className="mt-3 min-h-0 overflow-hidden rounded-lg border bg-background shadow-sm">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-b p-3">
+        <div className="min-w-0">
+          <p className="font-semibold text-sm">{dayTitle(selectedDate)}</p>
+          <p className="text-muted-foreground text-xs">
+            {entries.length} entries · {formatHours(selectedDayHours)}h tracked
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            className="h-8 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30"
+            onChange={(event) => onDateChange(event.target.value)}
+            type="date"
+            value={selectedDate}
+          />
+          <Button
+            className="interactive-lift"
+            onClick={() => onNewEntry(selectedDate)}
+            type="button"
+          >
+            <CalendarPlus />
+            Entry
+          </Button>
+        </div>
+      </div>
+
+      {entries.length > 0 ? (
+        <div className="divide-y">
+          {entries.map((entry) => (
+            <TimeEntryRow
+              clients={clients}
+              entry={entry}
+              key={entry.id}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onResume={onResume}
+              projects={projects}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid min-h-48 place-items-center p-6 text-center">
+          <div>
+            <div className="mx-auto flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Timer className="size-5" />
+            </div>
+            <p className="mt-3 font-semibold text-sm">No time entries yet</p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              Start the timer or add an entry for this day.
+            </p>
+            <Button
+              className="interactive-lift mt-4"
+              onClick={() => onNewEntry(selectedDate)}
+              type="button"
+              variant="outline"
+            >
+              <Plus />
+              Add entry
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AccountMenuOverlay({
+  authForm,
+  authMode,
+  idleThresholdSeconds,
+  menuRef,
+  miruSession,
+  onAuthFormChange,
+  onAuthModeChange,
+  onClose,
+  onIdleThresholdChange,
+  onLogout,
+  onQuit,
+  onSubmitAuth,
+  onSyncTimer,
+  onWorkspaceChange,
+  show,
+  syncMessage,
+}: {
+  authForm: AuthForm;
+  authMode: AuthMode;
+  idleThresholdSeconds: number;
+  menuRef: RefObject<HTMLDivElement | null>;
+  miruSession: MiruSessionState | null;
+  onAuthFormChange: (form: AuthForm) => void;
+  onAuthModeChange: (mode: AuthMode) => void;
+  onClose: () => void;
+  onIdleThresholdChange: (seconds: number) => void;
+  onLogout: () => void;
+  onQuit: () => void;
+  onSubmitAuth: () => void;
+  onSyncTimer: (action: "pull" | "push") => void;
+  onWorkspaceChange: (workspaceId: string) => void;
+  show: boolean;
+  syncMessage: string;
+}) {
+  if (!show) {
+    return null;
+  }
+
+  return (
+    <div className="absolute inset-0 z-40">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-transparent"
+        onClick={onClose}
+      />
+      <div
+        aria-label="Account and sync menu"
+        className="motion-popover no-drag absolute top-16 right-3 w-[22rem] max-w-[calc(100vw-1.5rem)]"
+        ref={menuRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <SyncPanel
+          authForm={authForm}
+          authMode={authMode}
+          idleThresholdSeconds={idleThresholdSeconds}
+          miruSession={miruSession}
+          onAuthFormChange={onAuthFormChange}
+          onAuthModeChange={onAuthModeChange}
+          onIdleThresholdChange={onIdleThresholdChange}
+          onLogout={onLogout}
+          onQuit={onQuit}
+          onSubmitAuth={onSubmitAuth}
+          onSyncTimer={onSyncTimer}
+          onWorkspaceChange={onWorkspaceChange}
+          syncMessage={syncMessage}
+        />
+      </div>
     </div>
   );
 }
@@ -973,7 +1188,7 @@ function OnboardingPanel({
 }) {
   return (
     <main className="grid min-h-0 flex-1 place-items-center p-5">
-      <section className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-sm">
+      <section className="motion-dialog w-full max-w-sm rounded-lg border bg-background p-4 shadow-sm">
         <div>
           <p className="font-semibold text-lg">Log in to Miru</p>
           <p className="mt-1 text-muted-foreground text-sm">
@@ -1007,7 +1222,7 @@ function OnboardingPanel({
               </button>
             ))}
           </div>
-          <FieldLabel label="Miru URL">
+          <FieldLabel icon={<LinkIcon />} label="Miru URL">
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1016,7 +1231,7 @@ function OnboardingPanel({
               value={authForm.baseUrl}
             />
           </FieldLabel>
-          <FieldLabel label="Email">
+          <FieldLabel icon={<Mail />} label="Email">
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1028,7 +1243,7 @@ function OnboardingPanel({
           </FieldLabel>
           {authMode === "signup" && (
             <div className="grid grid-cols-2 gap-2">
-              <FieldLabel label="First name">
+              <FieldLabel icon={<UserRound />} label="First name">
                 <input
                   className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={(event) =>
@@ -1040,7 +1255,7 @@ function OnboardingPanel({
                   value={authForm.firstName}
                 />
               </FieldLabel>
-              <FieldLabel label="Last name">
+              <FieldLabel icon={<UserRound />} label="Last name">
                 <input
                   className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   onChange={(event) =>
@@ -1054,7 +1269,7 @@ function OnboardingPanel({
               </FieldLabel>
             </div>
           )}
-          <FieldLabel label="Password">
+          <FieldLabel icon={<LockKeyhole />} label="Password">
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1094,10 +1309,12 @@ function TimeEntryRow({
   projects: Project[];
 }) {
   return (
-    <div className="group grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-3">
+    <div className="group grid grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-3 transition-colors hover:bg-muted/40">
+      <div className="flex size-8 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+        <FolderKanban className="size-4" />
+      </div>
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="size-2 rounded-full bg-emerald-500" />
           <p className="truncate font-semibold text-sm">
             {projectById(entry.projectId, projects)?.name}
           </p>
@@ -1107,7 +1324,8 @@ function TimeEntryRow({
           {taskById(entry.taskId)?.name}
         </p>
         {entry.notes && (
-          <p className="mt-1 truncate text-muted-foreground text-xs">
+          <p className="mt-1 flex items-center gap-1 truncate text-muted-foreground text-xs">
+            <FileText className="size-3 shrink-0" />
             {entry.notes}
           </p>
         )}
@@ -1117,7 +1335,7 @@ function TimeEntryRow({
           {formatEntryDuration(entry.hours)}
         </span>
         <button
-          className="flex size-8 items-center justify-center rounded-full border text-muted-foreground hover:border-primary hover:text-primary"
+          className="interactive-lift icon-motion flex size-8 items-center justify-center rounded-full border text-muted-foreground hover:border-primary hover:text-primary"
           onClick={() => onResume(entry)}
           title="Resume timer"
           type="button"
@@ -1125,7 +1343,7 @@ function TimeEntryRow({
           <Play className="size-3.5" />
         </button>
         <button
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="interactive-lift icon-motion flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={() => onEdit(entry)}
           title="Edit entry"
           type="button"
@@ -1133,7 +1351,7 @@ function TimeEntryRow({
           <Pencil className="size-3.5" />
         </button>
         <button
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-rose-600"
+          className="interactive-lift icon-motion flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-rose-600"
           onClick={() => onDelete(entry)}
           title="Delete entry"
           type="button"
@@ -1155,10 +1373,15 @@ function IdlePrompt({
   ) => void;
 }) {
   return (
-    <section className="mt-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-primary">
-      <p className="font-semibold text-sm">
-        Idle time detected: {formatLongDuration(durationMs)}
-      </p>
+    <section className="motion-fade-up mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+      <div className="flex items-center gap-2">
+        <span className="flex size-8 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+          <TimerReset className="size-4" />
+        </span>
+        <p className="font-semibold text-sm">
+          Idle time detected: {formatLongDuration(durationMs)}
+        </p>
+      </div>
       <div className="mt-2 grid gap-2">
         <Button
           className="justify-start"
@@ -1214,11 +1437,13 @@ function TimeSummaryStrip({ summary }: { summary: TimeSummary }) {
 
         return (
           <div
-            className="min-w-0 rounded-lg border bg-background px-3 py-2 shadow-sm"
+            className="motion-fade-up interactive-lift min-w-0 rounded-lg border bg-background px-3 py-2 shadow-sm"
             key={item.label}
           >
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Icon className="size-3.5 shrink-0 text-primary" />
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Icon className="size-3.5" />
+              </span>
               <p className="truncate text-[11px]">{item.label}</p>
             </div>
             <p className="mt-1 truncate font-mono font-semibold text-sm tabular-nums">
@@ -1266,14 +1491,15 @@ function SyncPanel({
   const status = miruSession?.syncStatus ?? "local";
   const StatusIcon =
     status === "offline" || status === "error" ? CloudOff : Cloud;
+  const syncStatusClass = getSyncStatusClass(status);
 
   if (miruSession?.signedIn) {
     return (
-      <section className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border bg-background/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-xl">
+      <section className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border bg-white p-2 shadow-2xl ring-1 ring-black/10">
         <div className="rounded-lg bg-muted/40 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-sm">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground text-sm shadow-sm">
                 {getInitials(accountName || accountEmail || "M")}
               </div>
               <div className="min-w-0">
@@ -1285,12 +1511,8 @@ function SyncPanel({
             </div>
             <span
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
-                status === "synced"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : status === "syncing"
-                    ? "bg-primary/10 text-primary"
-                    : "bg-background text-muted-foreground"
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-[11px]",
+                syncStatusClass
               )}
             >
               <StatusIcon className="size-3" />
@@ -1343,7 +1565,7 @@ function SyncPanel({
         </div>
 
         <div className="mt-2 rounded-lg border bg-background p-3">
-          <FieldLabel label="Idle prompt">
+          <FieldLabel icon={<TimerReset />} label="Idle prompt">
             <select
               className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1411,7 +1633,7 @@ function SyncPanel({
             </button>
           ))}
         </div>
-        <FieldLabel label="Miru URL">
+        <FieldLabel icon={<LinkIcon />} label="Miru URL">
           <input
             className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             onChange={(event) =>
@@ -1420,7 +1642,7 @@ function SyncPanel({
             value={authForm.baseUrl}
           />
         </FieldLabel>
-        <FieldLabel label="Email">
+        <FieldLabel icon={<Mail />} label="Email">
           <input
             className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             onChange={(event) =>
@@ -1432,7 +1654,7 @@ function SyncPanel({
         </FieldLabel>
         {authMode === "signup" && (
           <div className="grid grid-cols-2 gap-2">
-            <FieldLabel label="First name">
+            <FieldLabel icon={<UserRound />} label="First name">
               <input
                 className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 onChange={(event) =>
@@ -1444,7 +1666,7 @@ function SyncPanel({
                 value={authForm.firstName}
               />
             </FieldLabel>
-            <FieldLabel label="Last name">
+            <FieldLabel icon={<UserRound />} label="Last name">
               <input
                 className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 onChange={(event) =>
@@ -1458,7 +1680,7 @@ function SyncPanel({
             </FieldLabel>
           </div>
         )}
-        <FieldLabel label="Password">
+        <FieldLabel icon={<LockKeyhole />} label="Password">
           <input
             className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             onChange={(event) =>
@@ -1503,7 +1725,7 @@ function MenuAction({
 }) {
   return (
     <button
-      className="grid grid-cols-[2rem_1fr] items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-muted"
+      className="interactive-lift icon-motion grid grid-cols-[2rem_1fr] items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-muted"
       onClick={onClick}
       type="button"
     >
@@ -1543,7 +1765,7 @@ function EntryEditorDialog({
 }) {
   return (
     <div className="absolute inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm overflow-hidden rounded-lg border bg-background shadow-2xl">
+      <div className="motion-dialog w-full max-w-sm overflow-hidden rounded-lg border bg-background shadow-2xl">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b p-3">
           <div />
           <h2 className="font-semibold text-sm">
@@ -1551,7 +1773,7 @@ function EntryEditorDialog({
           </h2>
           <div className="flex justify-end">
             <button
-              className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="interactive-lift icon-motion flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               onClick={onClose}
               title="Close"
               type="button"
@@ -1562,7 +1784,7 @@ function EntryEditorDialog({
         </div>
 
         <div className="grid gap-3 p-4">
-          <FieldLabel label="Date">
+          <FieldLabel icon={<CalendarDays />} label="Date">
             <input
               className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1572,7 +1794,7 @@ function EntryEditorDialog({
               value={draft.date}
             />
           </FieldLabel>
-          <FieldLabel label="Project">
+          <FieldLabel icon={<FolderKanban />} label="Project">
             <Select
               onChange={(value) => onChange({ ...draft, projectId: value })}
               value={draft.projectId}
@@ -1586,7 +1808,7 @@ function EntryEditorDialog({
             </Select>
           </FieldLabel>
           <div className="grid grid-cols-[1fr_6rem] gap-2">
-            <FieldLabel label="Task">
+            <FieldLabel icon={<ListChecks />} label="Task">
               <Select
                 onChange={(value) => onChange({ ...draft, taskId: value })}
                 value={draft.taskId}
@@ -1598,7 +1820,7 @@ function EntryEditorDialog({
                 ))}
               </Select>
             </FieldLabel>
-            <FieldLabel label="Time">
+            <FieldLabel icon={<Timer />} label="Time">
               <input
                 className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 onChange={(event) =>
@@ -1609,7 +1831,7 @@ function EntryEditorDialog({
               />
             </FieldLabel>
           </div>
-          <FieldLabel label="Notes">
+          <FieldLabel icon={<FileText />} label="Notes">
             <textarea
               className="min-h-20 resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30"
               onChange={(event) =>
@@ -1622,6 +1844,7 @@ function EntryEditorDialog({
         </div>
         <div className="grid grid-cols-2 gap-2 border-t p-3">
           <Button onClick={onSave} variant="outline">
+            <Save />
             Save
           </Button>
           <Button onClick={onStart}>
@@ -1636,16 +1859,21 @@ function EntryEditorDialog({
 
 function FieldLabel({
   children,
+  icon,
   label,
 }: {
   children: ReactNode;
+  icon?: ReactNode;
   label: string;
 }) {
   return (
-    <label className="grid gap-1.5 text-sm">
-      <span className="font-medium text-muted-foreground text-xs">{label}</span>
+    <div className="grid gap-1.5 text-sm">
+      <span className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs [&_svg]:size-3.5">
+        {icon}
+        {label}
+      </span>
       {children}
-    </label>
+    </div>
   );
 }
 
@@ -1694,6 +1922,66 @@ function projectById(id: string, collection: Project[]) {
 
 function taskById(id: string) {
   return tasks.find((task) => task.id === id);
+}
+
+function getTimerPanelClass(timer: TimerState) {
+  if (timer.idle) {
+    return "border-amber-200 bg-amber-50";
+  }
+
+  if (timer.running) {
+    return "border-[#261257] bg-[#211044] text-white";
+  }
+
+  if (timer.elapsedSeconds > 0) {
+    return "border-[#d9d0ff] bg-[#f5f2ff]";
+  }
+
+  return "bg-background";
+}
+
+function getTimerDotClass(timer: TimerState) {
+  if (timer.idle) {
+    return "status-dot-idle bg-amber-500";
+  }
+
+  if (timer.running) {
+    return "status-dot-running bg-emerald-500";
+  }
+
+  if (timer.elapsedSeconds > 0) {
+    return "bg-primary";
+  }
+
+  return "bg-muted-foreground/40";
+}
+
+function getTimerStatusLabel(timer: TimerState) {
+  if (timer.idle) {
+    return "Idle detected";
+  }
+
+  if (timer.running) {
+    return "Tracking now";
+  }
+
+  if (timer.elapsedSeconds > 0) {
+    return "Paused";
+  }
+
+  return "Ready";
+}
+
+function getSyncStatusClass(status: MiruSessionState["syncStatus"]) {
+  if (status === "synced") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "syncing") {
+    return "bg-primary/10 text-primary";
+  }
+
+  return "bg-background text-muted-foreground";
 }
 
 function sumEntryHoursForRange(entries: TimeEntry[], from: string, to: string) {
@@ -1766,7 +2054,7 @@ function getStringValue(source: Record<string, unknown>, key: string) {
 function getInitials(value: string) {
   return (
     value
-      .split(/\s+/)
+      .split(INITIALS_SPLIT_PATTERN)
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
@@ -1820,10 +2108,6 @@ function parseHoursInput(value: string) {
 
   const decimal = Number(trimmed);
   return Number.isFinite(decimal) ? decimal : 0;
-}
-
-function roundToQuarter(value: number) {
-  return Math.max(0.25, Math.round(value * 4) / 4);
 }
 
 function formatLongDuration(milliseconds: number) {

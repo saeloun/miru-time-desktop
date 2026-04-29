@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -31,6 +31,29 @@ async function launchApp() {
       console.log(msg.text());
     });
   });
+}
+
+function seedSignedInAccount() {
+  writeFileSync(
+    path.join(userDataDir, "miru-account.json"),
+    JSON.stringify(
+      {
+        authEmail: "employee@miru.test",
+        authToken: "test-token",
+        baseUrl: "http://127.0.0.1:65535",
+        currentWorkspaceId: 1,
+        user: {
+          email: "employee@miru.test",
+          first_name: "Mira",
+          id: 1,
+          last_name: "Employee",
+        },
+        workspaces: [{ id: 1, name: "Miru QA" }],
+      },
+      null,
+      2
+    )
+  );
 }
 
 test.beforeAll(async () => {
@@ -218,4 +241,33 @@ test("persists timer context across app relaunch", async () => {
   expect(state.elapsedSeconds).toBeGreaterThanOrEqual(1);
   expect(state.context.notes).toBe("Persisted timer");
   expect(state.context.billable).toBe(false);
+});
+
+test("closes account menu and logs out from signed-in state", async () => {
+  await electronApp.close();
+  seedSignedInAccount();
+  await launchApp();
+
+  const page: Page = await electronApp.firstWindow();
+  const accountButton = page.getByLabel("Account menu");
+  const accountMenu = page.getByRole("dialog", {
+    name: "Account and sync menu",
+  });
+
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+  await expect(accountMenu).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(accountMenu).toBeHidden();
+
+  await accountButton.click();
+  await expect(accountMenu).toBeVisible();
+  await page.mouse.click(12, 92);
+  await expect(accountMenu).toBeHidden();
+
+  await accountButton.click();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await page.waitForSelector("text=Log in to Miru");
+  await expect(accountButton).toBeHidden();
 });
