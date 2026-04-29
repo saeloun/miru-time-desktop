@@ -1122,15 +1122,21 @@ function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
   const state = getTrayVisualState(snapshot);
   const frame = Math.floor(Date.now() / 250) % 8;
   const palette = getTrayPalette(state);
-  const label = formatTraySvgLabel(snapshot);
+  const actionLabel = getTraySvgActionLabel(state);
+  const timeLabel = formatTraySvgTimeLabel(snapshot);
   const width = Math.max(
-    78,
-    45 + label.length * 7 + (snapshot.elapsedMs > 0 ? 13 : 0)
+    92,
+    44 +
+      actionLabel.length * 5.7 +
+      timeLabel.length * 7 +
+      (snapshot.elapsedMs > 0 ? 16 : 0)
   );
   const sweepX = 24 + ((frame * 11) % Math.max(24, width - 34));
   const pulse = 0.2 + (frame % 4) * 0.07;
   const primaryGlyph = getTrayPrimaryGlyph(state);
-  const stopGlyph = snapshot.elapsedMs > 0 ? getTrayStopGlyph(width) : "";
+  const stopGlyph =
+    snapshot.elapsedMs > 0 ? getTrayStopGlyph(width, state === "paused") : "";
+  const timeX = 29 + actionLabel.length * 5.7;
   const shimmer =
     state === "running"
       ? `<rect x="${sweepX}" y="2" width="15" height="18" rx="9" fill="#ffffff" opacity="${pulse.toFixed(2)}"/>`
@@ -1169,7 +1175,8 @@ function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
       <circle cx="12" cy="11" r="8.8" fill="${palette.button}" opacity="0.98"/>
       ${activity}
       <g fill="${palette.glyph}">${primaryGlyph}</g>
-      <text x="27" y="14.6" fill="${palette.text}" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.6" font-weight="700" letter-spacing="0">${label}</text>
+      <text x="28" y="14.2" fill="${palette.actionText}" font-family="-apple-system, BlinkMacSystemFont, SF Pro Text, Helvetica, Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="0">${actionLabel}</text>
+      <text x="${timeX}" y="14.4" fill="${palette.text}" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" font-weight="700" letter-spacing="0">${timeLabel}</text>
       ${progress}
       ${stopGlyph}
     </svg>
@@ -1202,6 +1209,7 @@ function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
   const palettes = {
     idle: {
       accent: "#facc15",
+      actionText: "#ffedd5",
       background: "#9a3412",
       border: "#f59e0b",
       button: "#f59e0b",
@@ -1211,6 +1219,7 @@ function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
     },
     paused: {
       accent: "#c4b5fd",
+      actionText: "#ddd6fe",
       background: "#4c4563",
       border: "#8b7fc0",
       button: "#6d5dfc",
@@ -1220,6 +1229,7 @@ function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
     },
     ready: {
       accent: "#c4c7cf",
+      actionText: "#d4d4d8",
       background: "#2f3138",
       border: "#6b7280",
       button: "#52525b",
@@ -1229,6 +1239,7 @@ function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
     },
     running: {
       accent: "#c4b5fd",
+      actionText: "#ddd6fe",
       background: "#4c1d95",
       border: "#a78bfa",
       button: "#ffffff",
@@ -1259,7 +1270,15 @@ function getTrayPrimaryGlyph(state: ReturnType<typeof getTrayVisualState>) {
   return `<path d="M9.2 6.7v8.6l7-4.3z"/>`;
 }
 
-function getTrayStopGlyph(width: number) {
+function getTrayStopGlyph(width: number, opensWindow: boolean) {
+  if (opensWindow) {
+    return `
+      <rect x="${width - 18}" y="5.5" width="12" height="12" rx="6" fill="#000000" opacity="0.16"/>
+      <line x1="${width - 22}" y1="5.2" x2="${width - 22}" y2="16.8" stroke="#ffffff" stroke-width="0.8" opacity="0.18"/>
+      <path d="M${width - 14.6} 12.3h5.2M${width - 12} 9.7l2.6 2.6-2.6 2.6" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    `;
+  }
+
   return `
     <rect x="${width - 17}" y="6" width="11" height="11" rx="5.5" fill="#000000" opacity="0.18"/>
     <line x1="${width - 21}" y1="5.2" x2="${width - 21}" y2="16.8" stroke="#ffffff" stroke-width="0.8" opacity="0.18"/>
@@ -1267,9 +1286,25 @@ function getTrayStopGlyph(width: number) {
   `;
 }
 
-function formatTraySvgLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
+function getTraySvgActionLabel(state: ReturnType<typeof getTrayVisualState>) {
+  if (state === "running") {
+    return "Pause";
+  }
+
+  if (state === "paused") {
+    return "Resume";
+  }
+
+  if (state === "idle") {
+    return "Idle";
+  }
+
+  return "Start";
+}
+
+function formatTraySvgTimeLabel(snapshot: ReturnType<typeof getTimerSnapshot>) {
   if (snapshot.idle) {
-    return `IDLE ${snapshot.formatted}`;
+    return snapshot.formatted;
   }
 
   if (snapshot.running || snapshot.elapsedMs > 0) {
