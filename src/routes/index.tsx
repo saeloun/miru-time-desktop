@@ -137,12 +137,16 @@ type I18nKey =
   | "auth.password"
   | "auth.signup"
   | "entries.add"
+  | "entries.day"
   | "entries.empty"
   | "entries.emptyHint"
+  | "entries.edit"
+  | "entries.history"
+  | "entries.historyTitle"
+  | "entries.live"
+  | "entries.new"
   | "entries.save"
   | "entries.title"
-  | "entries.edit"
-  | "entries.new"
   | "field.date"
   | "field.notes"
   | "field.project"
@@ -204,9 +208,13 @@ const APP_TRANSLATIONS: Record<string, Partial<Record<I18nKey, string>>> = {
     "auth.password": "Password",
     "auth.signup": "Sign up",
     "entries.add": "Entry",
+    "entries.day": "Day",
     "entries.empty": "No time entries yet",
     "entries.emptyHint": "Start the timer or add an entry for this day.",
     "entries.edit": "Edit entry",
+    "entries.history": "History",
+    "entries.historyTitle": "{count} entries · {hours}h total",
+    "entries.live": "Live timesheet",
     "entries.new": "New entry",
     "entries.save": "Save",
     "entries.title": "{count} entries · {hours}h tracked",
@@ -353,6 +361,19 @@ const APP_TRANSLATIONS: Record<string, Partial<Record<I18nKey, string>>> = {
     "timer.running": "ट्रैकिंग",
     "timer.start": "शुरू",
   },
+  mr: {},
+  bn: {},
+  gu: {},
+  kn: {},
+  ml: {},
+  pa: {},
+  ta: {},
+  te: {},
+  ur: {},
+  it: {},
+  nl: {},
+  id: {},
+  tr: {},
   ja: {
     "account.logout": "ログアウト",
     "account.settings": "設定",
@@ -416,6 +437,7 @@ const APP_TRANSLATIONS: Record<string, Partial<Record<I18nKey, string>>> = {
     "timer.running": "记录中",
     "timer.start": "开始",
   },
+  ko: {},
 };
 
 const DEFAULT_LOCALE = "en-US";
@@ -446,6 +468,18 @@ const SUPPORTED_LOCALES = [
   "zh-CN",
 ] as const;
 
+type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+
+const COMPLETE_APP_TRANSLATIONS = Object.fromEntries(
+  SUPPORTED_LOCALES.map((locale) => [
+    locale,
+    {
+      ...APP_TRANSLATIONS[DEFAULT_LOCALE],
+      ...(APP_TRANSLATIONS[locale] ?? {}),
+    },
+  ])
+) as Record<SupportedLocale, Record<I18nKey, string>>;
+
 const miruLogoUrl = new URL("../assets/miru-time-icon.svg", import.meta.url)
   .href;
 
@@ -454,6 +488,7 @@ const tasks: Task[] = [{ id: "time", name: "Time entry" }];
 const todayIso = new Date().toISOString().slice(0, 10);
 const INITIALS_SPLIT_PATTERN = /\s+/;
 const ABSOLUTE_ASSET_PATTERN = /^(?:https?:|data:|blob:)/i;
+const RTL_LOCALES = new Set(["ar", "ur"]);
 
 const initialTimer: TimerState = {
   billable: false,
@@ -706,9 +741,22 @@ function HomePage() {
     () => entries.filter((entry) => entry.date === selectedDate),
     [entries, selectedDate]
   );
+  const sortedEntries = useMemo(
+    () =>
+      [...entries].sort(
+        (entry, nextEntry) =>
+          nextEntry.date.localeCompare(entry.date) ||
+          nextEntry.id.localeCompare(entry.id)
+      ),
+    [entries]
+  );
   const selectedDayHours = useMemo(
     () => selectedEntries.reduce((total, entry) => total + entry.hours, 0),
     [selectedEntries]
+  );
+  const totalTrackedHours = useMemo(
+    () => entries.reduce((total, entry) => total + entry.hours, 0),
+    [entries]
   );
   const weekRange = useMemo(() => getWeekRange(todayIso), []);
   const runningTimerHours = timer.elapsedSeconds / 3600;
@@ -754,6 +802,7 @@ function HomePage() {
     [miruSession?.user]
   );
   const t = useMemo(() => createTranslator(appLocale), [appLocale]);
+  const textDirection = RTL_LOCALES.has(appLocale) ? "rtl" : "ltr";
 
   useEffect(() => {
     window.localStorage.setItem("miru-time-locale", appLocale);
@@ -767,7 +816,7 @@ function HomePage() {
     window.miruTimer
       .setSummary({
         entryCount: timeSummary.entryCount,
-        selectedDateLabel: dayTitle(selectedDate),
+        selectedDateLabel: dayTitle(selectedDate, appLocale, t),
         selectedDateMinutes: Math.round(timeSummary.selectedDayHours * 60),
         syncStatus: miruSession?.syncStatus ?? "local",
         todayMinutes: Math.round(timeSummary.todayHours * 60),
@@ -782,8 +831,10 @@ function HomePage() {
     accountEmail,
     accountLabel,
     activeWorkspace?.name,
+    appLocale,
     miruSession?.syncStatus,
     selectedDate,
+    t,
     timeSummary.entryCount,
     timeSummary.selectedDayHours,
     timeSummary.todayHours,
@@ -1041,7 +1092,10 @@ function HomePage() {
   }
 
   return (
-    <div className="relative isolate flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
+    <div
+      className="relative isolate flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl"
+      dir={textDirection}
+    >
       <header className="draglayer relative z-20 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <img
@@ -1130,8 +1184,10 @@ function HomePage() {
             )}
 
             <EntriesPanel
+              allEntries={sortedEntries}
               clients={clients}
               entries={selectedEntries}
+              locale={appLocale}
               onDateChange={setSelectedDate}
               onDelete={deleteEntry}
               onEdit={openEditEntry}
@@ -1141,6 +1197,7 @@ function HomePage() {
               selectedDate={selectedDate}
               selectedDayHours={selectedDayHours}
               t={t}
+              totalTrackedHours={totalTrackedHours}
             />
           </main>
 
@@ -1393,6 +1450,7 @@ function WorkDetailsPanel({
 }
 
 function EntriesPanel({
+  allEntries,
   clients,
   entries,
   onDateChange,
@@ -1400,11 +1458,14 @@ function EntriesPanel({
   onEdit,
   onNewEntry,
   onResume,
+  locale,
   projects,
   selectedDate,
   selectedDayHours,
   t,
+  totalTrackedHours,
 }: {
+  allEntries: TimeEntry[];
   clients: Client[];
   entries: TimeEntry[];
   onDateChange: (date: string) => void;
@@ -1412,30 +1473,42 @@ function EntriesPanel({
   onEdit: (entry: TimeEntry) => void;
   onNewEntry: (date: string) => void;
   onResume: (entry: TimeEntry) => void;
+  locale: string;
   projects: Project[];
   selectedDate: string;
   selectedDayHours: number;
   t: Translator;
+  totalTrackedHours: number;
 }) {
+  const [viewMode, setViewMode] = useState<"day" | "history">("day");
+  const visibleEntries = viewMode === "day" ? entries : allEntries;
+  const visibleHours =
+    viewMode === "day" ? selectedDayHours : totalTrackedHours;
+  const visibleTitle =
+    viewMode === "day"
+      ? t("entries.title", {
+          count: visibleEntries.length,
+          hours: formatHours(visibleHours),
+        })
+      : t("entries.historyTitle", {
+          count: visibleEntries.length,
+          hours: formatHours(visibleHours),
+        });
+
   return (
     <section className="mt-3 min-h-0 overflow-hidden rounded-lg border bg-background shadow-sm">
-      <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-b p-3">
-        <div className="min-w-0">
-          <p className="font-semibold text-sm">{dayTitle(selectedDate)}</p>
-          <p className="font-medium text-foreground/60 text-xs">
-            {t("entries.title", {
-              count: entries.length,
-              hours: formatHours(selectedDayHours),
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            className="h-8 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30"
-            onChange={(event) => onDateChange(event.target.value)}
-            type="date"
-            value={selectedDate}
-          />
+      <div className="grid gap-2 border-b p-3">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">
+              {viewMode === "day"
+                ? dayTitle(selectedDate, locale, t)
+                : t("entries.live")}
+            </p>
+            <p className="font-medium text-foreground/60 text-xs">
+              {visibleTitle}
+            </p>
+          </div>
           <Button
             className="interactive-lift"
             onClick={() => onNewEntry(selectedDate)}
@@ -1445,19 +1518,49 @@ function EntriesPanel({
             {t("entries.add")}
           </Button>
         </div>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="grid grid-cols-2 gap-1 rounded-md border bg-muted/40 p-1">
+            {(["day", "history"] as const).map((mode) => (
+              <button
+                className={cn(
+                  "h-8 rounded-sm px-3 font-medium text-xs transition",
+                  viewMode === mode
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                type="button"
+              >
+                {mode === "day" ? t("entries.day") : t("entries.history")}
+              </button>
+            ))}
+          </div>
+          <input
+            className="h-9 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30"
+            onChange={(event) => {
+              onDateChange(event.target.value);
+              setViewMode("day");
+            }}
+            type="date"
+            value={selectedDate}
+          />
+        </div>
       </div>
 
-      {entries.length > 0 ? (
-        <div className="divide-y">
-          {entries.map((entry) => (
+      {visibleEntries.length > 0 ? (
+        <div className="max-h-[18rem] divide-y overflow-y-auto">
+          {visibleEntries.map((entry) => (
             <TimeEntryRow
               clients={clients}
               entry={entry}
               key={entry.id}
+              locale={locale}
               onDelete={onDelete}
               onEdit={onEdit}
               onResume={onResume}
               projects={projects}
+              showDate={viewMode === "history"}
             />
           ))}
         </div>
@@ -1700,17 +1803,21 @@ function OnboardingPanel({
 function TimeEntryRow({
   entry,
   clients,
+  locale,
   onDelete,
   onEdit,
   onResume,
   projects,
+  showDate = false,
 }: {
   clients: Client[];
   entry: TimeEntry;
+  locale: string;
   onDelete: (entry: TimeEntry) => void;
   onEdit: (entry: TimeEntry) => void;
   onResume: (entry: TimeEntry) => void;
   projects: Project[];
+  showDate?: boolean;
 }) {
   return (
     <div className="group grid grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-3 transition-colors hover:bg-muted/40">
@@ -1724,6 +1831,7 @@ function TimeEntryRow({
           </p>
         </div>
         <p className="mt-0.5 truncate text-muted-foreground text-xs">
+          {showDate ? `${formatShortDate(entry.date, locale)} · ` : ""}
           {clientById(entry.clientId, clients)?.name} /{" "}
           {taskById(entry.taskId)?.name}
         </p>
@@ -2416,9 +2524,11 @@ function AccountAvatar({
 function createTranslator(locale: string): Translator {
   const normalizedLocale = normalizeLocale(locale);
   const baseLocale = normalizedLocale.split("-")[0];
-  const fallback = APP_TRANSLATIONS[DEFAULT_LOCALE] ?? {};
-  const localized = APP_TRANSLATIONS[normalizedLocale] ?? {};
-  const baseLocalized = APP_TRANSLATIONS[baseLocale] ?? {};
+  const fallback = COMPLETE_APP_TRANSLATIONS[DEFAULT_LOCALE];
+  const localized =
+    COMPLETE_APP_TRANSLATIONS[normalizedLocale as SupportedLocale] ?? {};
+  const baseLocalized =
+    COMPLETE_APP_TRANSLATIONS[baseLocale as SupportedLocale] ?? {};
 
   return (key, values = {}) => {
     const template =
@@ -2600,8 +2710,8 @@ function getWeekRange(date: string) {
   };
 }
 
-function formatWeekRange(from: string, to: string) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
+function formatWeekRange(from: string, to: string, locale = DEFAULT_LOCALE) {
+  const formatter = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
   });
@@ -2750,15 +2860,22 @@ function formatHours(value: number) {
   return value.toFixed(value % 1 === 0 ? 0 : 2);
 }
 
-function dayTitle(date: string) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
+function dayTitle(date: string, locale: string, t: Translator) {
+  const formatter = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
     weekday: "short",
   });
   return date === todayIso
-    ? "Today"
+    ? t("summary.today")
     : formatter.format(new Date(`${date}T00:00:00`));
+}
+
+function formatShortDate(date: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${date}T00:00:00`));
 }
 
 function shiftDate(date: string, days: number) {

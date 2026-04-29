@@ -8,7 +8,7 @@ import {
   type Page,
   test,
 } from "@playwright/test";
-import { findLatestBuild, parseElectronApp } from "electron-playwright-helpers";
+import { parseElectronApp } from "electron-playwright-helpers";
 
 let electronApp: ElectronApplication;
 const userDataDir = mkdtempSync(path.join(tmpdir(), "miru-time-desktop-e2e-"));
@@ -23,8 +23,9 @@ const ADMIN_SURFACE_PATTERNS = [
 ];
 
 async function launchApp() {
-  const latestBuild = findLatestBuild();
-  const appInfo = parseElectronApp(latestBuild);
+  const appInfo = parseElectronApp(
+    path.join(process.cwd(), "out/Miru Time Tracking-darwin-arm64")
+  );
   process.env.CI = "e2e";
   process.env.MIRU_E2E = "true";
   process.env.MIRU_USER_DATA_DIR = userDataDir;
@@ -65,6 +66,12 @@ function seedSignedInAccount(locale = "en-US") {
       2
     )
   );
+}
+
+function isoDateFromToday(offsetDays: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
 }
 
 test.beforeAll(async () => {
@@ -300,4 +307,71 @@ test("uses the signed-in Miru user locale", async () => {
   await expect(page.getByText("Esta semana")).toBeVisible();
   await page.getByLabel("Account menu").click();
   await expect(page.getByText("Idioma")).toBeVisible();
+});
+
+test("falls back cleanly for every supported Miru locale", async () => {
+  await electronApp.close();
+  seedSignedInAccount("ko");
+  await launchApp();
+
+  const page: Page = await electronApp.firstWindow();
+
+  await page.waitForSelector("text=Today");
+  await expect(page.getByText("This week")).toBeVisible();
+  await expect(page.getByRole("button", { name: "History" })).toBeVisible();
+  await page.getByLabel("Account menu").click();
+  await expect(page.getByText("Language:")).toBeVisible();
+  await expect(page.getByText("ko", { exact: true })).toBeVisible();
+});
+
+test("shows live timesheet history across past days", async () => {
+  await electronApp.close();
+  seedSignedInAccount();
+  await launchApp();
+
+  const page: Page = await electronApp.firstWindow();
+  const today = isoDateFromToday(0);
+  const yesterday = isoDateFromToday(-1);
+
+  await expect(page.getByLabel("Account menu")).toBeVisible();
+  await page.evaluate(
+    ([currentDate, pastDate]) => {
+      window.localStorage.setItem(
+        "pulse-time-entries",
+        JSON.stringify([
+          {
+            billable: false,
+            clientId: "client-1",
+            date: currentDate,
+            hours: 1,
+            id: "today-entry",
+            notes: "Today local task",
+            personId: "1",
+            projectId: "project-1",
+            status: "draft",
+            taskId: "time",
+          },
+          {
+            billable: false,
+            clientId: "client-1",
+            date: pastDate,
+            hours: 0.5,
+            id: "past-entry",
+            notes: "Past local task",
+            personId: "1",
+            projectId: "project-1",
+            status: "draft",
+            taskId: "time",
+          },
+        ])
+      );
+    },
+    [today, yesterday]
+  );
+  await page.reload();
+
+  await expect(page.getByText("Today local task")).toBeVisible();
+  await page.getByRole("button", { name: "History" }).click();
+  await expect(page.getByText("Live timesheet")).toBeVisible();
+  await expect(page.getByText("Past local task")).toBeVisible();
 });
