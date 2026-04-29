@@ -1,5 +1,6 @@
 import path from "node:path";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { deflateSync } from "node:zlib";
 import {
   app,
   BrowserWindow,
@@ -28,6 +29,9 @@ let trayTimer: NodeJS.Timeout | null = null;
 let idleMonitor: NodeJS.Timeout | null = null;
 let saveTimer: NodeJS.Timeout | null = null;
 let idleSession: { prompted: boolean; startedAt: number } | null = null;
+let latestTrayImageState = { empty: true, height: 0, width: 0 };
+
+type Rgba = [number, number, number, number];
 
 const timerState = {
   elapsedMs: 0,
@@ -320,6 +324,7 @@ function exposeE2EDiagnostics() {
   Object.assign(globalThis, {
     __miruE2E: {
       getTrayBounds: () => tray?.getBounds() ?? null,
+      getTrayImageState: () => latestTrayImageState,
       getTrayTitle: () => tray?.getTitle() ?? "",
     },
   });
@@ -1014,7 +1019,7 @@ function ensureTrayInterval() {
     return;
   }
 
-  trayTimer = setInterval(() => updateTray({ persist: false }), 250);
+  trayTimer = setInterval(() => updateTray({ persist: false }), 125);
 }
 
 function startIdleMonitor() {
@@ -1134,50 +1139,23 @@ function getTimerSnapshot() {
 
 function createTrayImage(snapshot: ReturnType<typeof getTimerSnapshot>) {
   const state = getTrayVisualState(snapshot);
-  const frame = Math.floor(Date.now() / 250) % 8;
-  const palette = getTrayPalette(state);
-  const rotation = frame * 45;
-  const pulse = 0.78 + (frame % 4) * 0.05;
-  const primaryGlyph = getTrayPrimaryGlyph(state);
-  const halo =
-    state === "running"
-      ? `<circle cx="11" cy="11" r="${5.2 + (frame % 4) * 0.35}" fill="${palette.accent}" opacity="0.18"/>`
-      : state === "idle"
-        ? `<circle cx="11" cy="11" r="${6.5 + (frame % 2) * 0.65}" fill="${palette.accent}" opacity="0.24"/>`
-        : "";
-  const activity =
-    state === "running"
-      ? `<circle cx="11" cy="11" r="8.35" fill="none" stroke="${palette.accent}" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="11 42" transform="rotate(${rotation} 11 11)" opacity="${pulse.toFixed(2)}"/>`
-      : state === "idle"
-        ? `<circle cx="11" cy="11" r="8.2" fill="none" stroke="${palette.accent}" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="4 6" transform="rotate(${rotation * 1.5} 11 11)" opacity="${0.7 + (frame % 2) * 0.25}"/>`
-        : state === "paused"
-          ? `<circle cx="11" cy="11" r="8.1" fill="none" stroke="${palette.accent}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1.8 4.6" transform="rotate(${rotation} 11 11)" opacity="0.76"/>`
-          : state === "ready"
-            ? `<circle cx="11" cy="11" r="8.1" fill="none" stroke="${palette.accent}" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="5 46" transform="rotate(${rotation} 11 11)" opacity="0.62"/>`
-            : "";
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
-      <defs>
-        <linearGradient id="surface" x1="4" x2="18" y1="3" y2="19" gradientUnits="userSpaceOnUse">
-          <stop stop-color="${palette.highlight}"/>
-          <stop offset="1" stop-color="${palette.background}"/>
-        </linearGradient>
-        <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="0.7" stdDeviation="0.55" flood-color="#000000" flood-opacity="0.24"/>
-        </filter>
-      </defs>
-      <circle cx="11" cy="11" r="9.4" fill="url(#surface)" filter="url(#soft-shadow)"/>
-      <circle cx="11" cy="11" r="9" fill="none" stroke="${palette.border}" stroke-width="1"/>
-      ${halo}
-      ${activity}
-      <g fill="${palette.glyph}">${primaryGlyph}</g>
-    </svg>
-  `;
-  const image = nativeImage.createFromDataURL(
-    `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  const frame = Math.floor(Date.now() / 125) % 16;
+  const phase = frame / 16;
+  const rotation = frame * 22.5;
+  const wave = (Math.sin(phase * Math.PI * 2) + 1) / 2;
+  const pulse = 0.76 + wave * 0.18;
+  const image = nativeImage.createFromBuffer(
+    renderTrayPng({
+      activityOpacity: pulse,
+      glow: wave,
+      rotation,
+      state,
+    }),
+    { scaleFactor: 2 }
   );
 
   image.setTemplateImage(false);
+  latestTrayImageState = { ...image.getSize(), empty: image.isEmpty() };
   return image;
 }
 
@@ -1232,22 +1210,450 @@ function getTrayPalette(state: ReturnType<typeof getTrayVisualState>) {
   return palettes[state];
 }
 
-function getTrayPrimaryGlyph(state: ReturnType<typeof getTrayVisualState>) {
+function renderTrayPng({
+  activityOpacity,
+  glow,
+  rotation,
+  state,
+}: {
+  activityOpacity: number;
+  glow: number;
+  rotation: number;
+  state: ReturnType<typeof getTrayVisualState>;
+}) {
+  const size = 44;
+  const center = 22;
+  const pixels = new Uint8ClampedArray(size * size * 4);
+  const palette = getTrayPalette(state);
+  const background = hexToRgba(palette.background);
+  const highlight = hexToRgba(palette.highlight);
+  const accent = hexToRgba(palette.accent);
+  const border = hexToRgba(palette.border);
+  const glyph = hexToRgba(palette.glyph);
+
+  drawShadow(pixels, size, center, center + 1.2, 19.6);
+  drawGradientCircle(pixels, size, center, center, 18.8, highlight, background);
+  drawRing(pixels, size, center, center, 18, 1.5, border, 0.82);
+
   if (state === "running") {
-    return `
-      <rect x="9" y="7" width="2" height="8" rx="0.9"/>
-      <rect x="13" y="7" width="2" height="8" rx="0.9"/>
-    `;
+    drawCircle(pixels, size, center, center, 10.8 + glow * 3, accent, 0.2);
+    drawArc(
+      pixels,
+      size,
+      center,
+      center,
+      16.5,
+      4.8,
+      rotation,
+      86,
+      accent,
+      activityOpacity
+    );
+    drawGlint(pixels, size, 10 + glow * 10);
+  } else if (state === "idle") {
+    drawCircle(pixels, size, center, center, 13 + glow * 2.4, accent, 0.25);
+    drawDashedRing(
+      pixels,
+      size,
+      center,
+      center,
+      16.5,
+      4.2,
+      rotation * 1.4,
+      8,
+      14,
+      accent,
+      0.62 + glow * 0.32
+    );
+  } else if (state === "paused") {
+    drawCircle(pixels, size, center, center, 12.4, accent, 0.08 + glow * 0.07);
+    drawDashedRing(
+      pixels,
+      size,
+      center,
+      center,
+      16.2,
+      3.4,
+      rotation * 0.45,
+      16,
+      6,
+      accent,
+      0.48 + glow * 0.18
+    );
+  } else {
+    drawArc(
+      pixels,
+      size,
+      center,
+      center,
+      16.2,
+      3.4,
+      rotation * 0.5,
+      46,
+      accent,
+      0.44 + glow * 0.18
+    );
+  }
+
+  drawGlyph(pixels, size, state, glyph);
+
+  return encodePng(size, size, pixels);
+}
+
+function drawGlyph(
+  pixels: Uint8ClampedArray,
+  size: number,
+  state: ReturnType<typeof getTrayVisualState>,
+  color: Rgba
+) {
+  if (state === "running") {
+    drawRoundedRect(pixels, size, 18, 14, 4, 16, 1.8, color, 1);
+    drawRoundedRect(pixels, size, 26, 14, 4, 16, 1.8, color, 1);
+    return;
   }
 
   if (state === "idle") {
-    return `
-      <rect x="10.8" y="6.1" width="2.4" height="7.4" rx="1.2"/>
-      <circle cx="12" cy="16" r="1.25"/>
-    `;
+    drawRoundedRect(pixels, size, 19.6, 12.2, 4.8, 14.8, 2.4, color, 1);
+    drawCircle(pixels, size, 22, 32, 2.5, color, 1);
+    return;
   }
 
-  return `<path d="M9.2 6.7v8.6l7-4.3z"/>`;
+  drawTriangle(
+    pixels,
+    size,
+    [
+      [18.4, 13.4],
+      [18.4, 30.6],
+      [32.4, 22],
+    ],
+    color,
+    1
+  );
+}
+
+function drawShadow(
+  pixels: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+  radius: number
+) {
+  drawCircle(pixels, size, cx, cy, radius, [0, 0, 0, 255], 0.16);
+}
+
+function drawGradientCircle(
+  pixels: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  from: Rgba,
+  to: Rgba
+) {
+  const radiusSquared = radius * radius;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const distanceSquared = dx * dx + dy * dy;
+
+      if (distanceSquared > radiusSquared) {
+        continue;
+      }
+
+      const edge = Math.min(1, radius - Math.sqrt(distanceSquared));
+      const mix = Math.min(1, Math.max(0, (x + y) / (size * 2)));
+      blendPixel(pixels, size, x, y, mixColor(from, to, mix), edge);
+    }
+  }
+}
+
+function drawCircle(
+  pixels: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  color: Rgba,
+  opacity: number
+) {
+  const radiusSquared = radius * radius;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const distanceSquared = dx * dx + dy * dy;
+
+      if (distanceSquared > radiusSquared) {
+        continue;
+      }
+
+      const edge = Math.min(1, radius - Math.sqrt(distanceSquared));
+      blendPixel(pixels, size, x, y, color, opacity * edge);
+    }
+  }
+}
+
+function drawRing(
+  pixels: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  thickness: number,
+  color: Rgba,
+  opacity: number
+) {
+  drawArc(pixels, size, cx, cy, radius, thickness, 0, 360, color, opacity);
+}
+
+function drawDashedRing(
+  pixels: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  thickness: number,
+  rotation: number,
+  dashDegrees: number,
+  gapDegrees: number,
+  color: Rgba,
+  opacity: number
+) {
+  const step = dashDegrees + gapDegrees;
+
+  for (let start = rotation; start < rotation + 360; start += step) {
+    drawArc(
+      pixels,
+      size,
+      cx,
+      cy,
+      radius,
+      thickness,
+      start,
+      dashDegrees,
+      color,
+      opacity
+    );
+  }
+}
+
+function drawArc(
+  pixels: Uint8ClampedArray,
+  size: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  thickness: number,
+  startDegrees: number,
+  sweepDegrees: number,
+  color: Rgba,
+  opacity: number
+) {
+  const inner = radius - thickness / 2;
+  const outer = radius + thickness / 2;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < inner || distance > outer) {
+        continue;
+      }
+
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const normalized = (angle - startDegrees + 720) % 360;
+
+      if (normalized > sweepDegrees) {
+        continue;
+      }
+
+      const edge = Math.min(1, distance - inner, outer - distance);
+      blendPixel(pixels, size, x, y, color, opacity * Math.max(0.35, edge));
+    }
+  }
+}
+
+function drawRoundedRect(
+  pixels: Uint8ClampedArray,
+  size: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  color: Rgba,
+  opacity: number
+) {
+  for (let py = Math.floor(y); py <= Math.ceil(y + height); py += 1) {
+    for (let px = Math.floor(x); px <= Math.ceil(x + width); px += 1) {
+      const qx = Math.max(x + radius, Math.min(px + 0.5, x + width - radius));
+      const qy = Math.max(y + radius, Math.min(py + 0.5, y + height - radius));
+      const distance = Math.hypot(px + 0.5 - qx, py + 0.5 - qy);
+
+      if (distance <= radius) {
+        blendPixel(pixels, size, px, py, color, opacity);
+      }
+    }
+  }
+}
+
+function drawTriangle(
+  pixels: Uint8ClampedArray,
+  size: number,
+  points: [[number, number], [number, number], [number, number]],
+  color: Rgba,
+  opacity: number
+) {
+  const minX = Math.floor(Math.min(...points.map(([x]) => x)));
+  const maxX = Math.ceil(Math.max(...points.map(([x]) => x)));
+  const minY = Math.floor(Math.min(...points.map(([, y]) => y)));
+  const maxY = Math.ceil(Math.max(...points.map(([, y]) => y)));
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      if (pointInTriangle(x + 0.5, y + 0.5, points)) {
+        blendPixel(pixels, size, x, y, color, opacity);
+      }
+    }
+  }
+}
+
+function drawGlint(pixels: Uint8ClampedArray, size: number, x: number) {
+  drawCircle(pixels, size, x, 9, 2.2, [255, 255, 255, 255], 0.22);
+}
+
+function pointInTriangle(
+  x: number,
+  y: number,
+  [[x1, y1], [x2, y2], [x3, y3]]: [
+    [number, number],
+    [number, number],
+    [number, number],
+  ]
+) {
+  const denominator = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+  const a = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denominator;
+  const b = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denominator;
+  const c = 1 - a - b;
+
+  return a >= 0 && b >= 0 && c >= 0;
+}
+
+function blendPixel(
+  pixels: Uint8ClampedArray,
+  size: number,
+  x: number,
+  y: number,
+  [r, g, b, a]: Rgba,
+  opacity: number
+) {
+  if (x < 0 || y < 0 || x >= size || y >= size || opacity <= 0) {
+    return;
+  }
+
+  const index = (y * size + x) * 4;
+  const sourceAlpha = (a / 255) * Math.min(1, opacity);
+  const destinationAlpha = pixels[index + 3] / 255;
+  const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha);
+
+  if (outputAlpha === 0) {
+    return;
+  }
+
+  pixels[index] =
+    (r * sourceAlpha + pixels[index] * destinationAlpha * (1 - sourceAlpha)) /
+    outputAlpha;
+  pixels[index + 1] =
+    (g * sourceAlpha +
+      pixels[index + 1] * destinationAlpha * (1 - sourceAlpha)) /
+    outputAlpha;
+  pixels[index + 2] =
+    (b * sourceAlpha +
+      pixels[index + 2] * destinationAlpha * (1 - sourceAlpha)) /
+    outputAlpha;
+  pixels[index + 3] = outputAlpha * 255;
+}
+
+function mixColor(from: Rgba, to: Rgba, amount: number): Rgba {
+  return [
+    from[0] + (to[0] - from[0]) * amount,
+    from[1] + (to[1] - from[1]) * amount,
+    from[2] + (to[2] - from[2]) * amount,
+    255,
+  ];
+}
+
+function hexToRgba(value: string): Rgba {
+  const hex = value.replace("#", "");
+
+  return [
+    Number.parseInt(hex.slice(0, 2), 16),
+    Number.parseInt(hex.slice(2, 4), 16),
+    Number.parseInt(hex.slice(4, 6), 16),
+    255,
+  ];
+}
+
+function encodePng(width: number, height: number, pixels: Uint8ClampedArray) {
+  const signature = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+
+  for (let y = 0; y < height; y += 1) {
+    const rowStart = y * (width * 4 + 1);
+    raw[rowStart] = 0;
+    Buffer.from(pixels.buffer, y * width * 4, width * 4).copy(
+      raw,
+      rowStart + 1
+    );
+  }
+
+  return Buffer.concat([
+    signature,
+    pngChunk("IHDR", createPngHeader(width, height)),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function createPngHeader(width: number, height: number) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+  header[10] = 0;
+  header[11] = 0;
+  header[12] = 0;
+  return header;
+}
+
+function pngChunk(type: string, data: Buffer) {
+  const typeBuffer = Buffer.from(type);
+  const length = Buffer.alloc(4);
+  const crc = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
+  return Buffer.concat([length, typeBuffer, data, crc]);
+}
+
+function crc32(buffer: Buffer) {
+  let crc = 0xffffffff;
+
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+    }
+  }
+
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function getTrayNativeActionLabel(

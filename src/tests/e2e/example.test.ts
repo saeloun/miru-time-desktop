@@ -98,10 +98,33 @@ test("keeps the native tray timer title visible", async () => {
 
       return diagnostics?.getTrayTitle() ?? "";
     });
+  const trayImageState = () =>
+    electronApp.evaluate(() => {
+      const diagnostics = (
+        globalThis as typeof globalThis & {
+          __miruE2E?: {
+            getTrayImageState: () => {
+              empty: boolean;
+              height: number;
+              width: number;
+            };
+          };
+        }
+      ).__miruE2E;
+
+      return (
+        diagnostics?.getTrayImageState() ?? {
+          empty: true,
+          height: 0,
+          width: 0,
+        }
+      );
+    });
 
   await page.evaluate(() => window.miruTimer.reset());
   await expect.poll(trayTitle).toContain("Start");
   await expect.poll(trayTitle).toContain("--:--");
+  await expect.poll(async () => (await trayImageState()).empty).toBe(false);
 
   await page.evaluate(() => window.miruTimer.start());
   await expect.poll(trayTitle).toContain("Pause");

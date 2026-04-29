@@ -91,6 +91,7 @@ dist/
 
 # Electron-Forge
 out/
+output/
 /test-results/
 /playwright-report/
 /blob-report/
