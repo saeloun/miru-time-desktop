@@ -79,6 +79,14 @@ ditto "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app" "/Application
 open "/Applications/Miru Time Tracking.app"
 ```
 
+## Production Smoke Account
+
+- For production-connected smoke checks, use Miru production at `https://app.miru.so`.
+- Use the `vipul@saeloun.com` account when an authenticated local session already exists.
+- Do not store, print, or commit passwords, tokens, cookies, or session files.
+- If the local session is missing or expired, ask the user to log in; never fake production auth.
+- Prefer read-only checks for production. Only create, update, delete, start, stop, or sync real production timers when the user explicitly asks for that action.
+
 ## GitHub And Release
 
 - Canonical repository: `saeloun/miru-time-desktop`.

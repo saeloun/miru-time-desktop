@@ -207,6 +207,15 @@ async function readRequestBody(request: IncomingMessage) {
 }
 
 async function createFakeMiruApiServer({
+  currentUser = {
+    avatar_url: "/avatars/live-profile.png",
+    current_workspace_id: 11,
+    email: "employee@miru.test",
+    first_name: "Mira",
+    id: 7,
+    last_name: "Employee",
+    locale: "en-US",
+  },
   currentTimer = {
     billable: false,
     elapsed_ms: 3_720_000,
@@ -219,6 +228,7 @@ async function createFakeMiruApiServer({
   currentTimers = [],
   timeTracking = defaultTimeTrackingPayload(),
 }: {
+  currentUser?: Record<string, unknown>;
   currentTimer?: Record<string, unknown>;
   currentTimers?: Record<string, unknown>[];
   timeTracking?: FakeTimeTrackingPayload;
@@ -257,6 +267,18 @@ async function createFakeMiruApiServer({
           last_name: "Employee",
           locale: "fr",
           token: "login-token",
+        },
+      });
+      return;
+    }
+
+    if (request.method === "GET" && apiPath === "/users/_me") {
+      json(200, {
+        company: { id: activeWorkspaceId, name: "Miru QA" },
+        company_role: "employee",
+        user: {
+          ...currentUser,
+          current_workspace_id: activeWorkspaceId,
         },
       });
       return;
@@ -903,6 +925,9 @@ test("loads Miru API projects and entries for a signed-in employee", async () =>
     const page: Page = await firstWindow();
 
     await expect(page.getByLabel("Account menu")).toBeVisible();
+    await expect(
+      page.getByLabel("Account menu").locator("img")
+    ).toHaveAttribute("src", `${server.baseUrl}/avatars/live-profile.png`);
     await expect(page.getByText("Desktop QA", { exact: true })).toBeVisible();
     await expect(page.getByText("Loaded from Miru API")).toBeVisible();
     await expect(page.getByText("1 entries · 1.25h tracked")).toBeVisible();
@@ -914,6 +939,7 @@ test("loads Miru API projects and entries for a signed-in employee", async () =>
     expect(
       findApiRequest(server, "GET", "/api/v1/time-tracking")?.query
     ).toMatch(TIME_TRACKING_RANGE_QUERY_PATTERN);
+    expect(findApiRequest(server, "GET", "/api/v1/users/_me")).toBeTruthy();
   } finally {
     await closeApp();
     await server.close();
@@ -922,7 +948,17 @@ test("loads Miru API projects and entries for a signed-in employee", async () =>
 
 test("logs in through Miru API and switches workspaces", async () => {
   await closeApp();
-  const server = await createFakeMiruApiServer();
+  const server = await createFakeMiruApiServer({
+    currentUser: {
+      avatar_url: "/avatars/live-profile.png",
+      current_workspace_id: 11,
+      email: "employee@miru.test",
+      first_name: "Mira",
+      id: 7,
+      last_name: "Employee",
+      locale: "fr",
+    },
+  });
 
   try {
     seedSignedOutAccount(server.baseUrl);

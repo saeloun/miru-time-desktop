@@ -740,9 +740,10 @@ async function loginToMiru(payload: {
     baseUrl
   );
 
-  const session = setMiruAccountFromAuth(response, baseUrl);
+  setMiruAccountFromAuth(response, baseUrl);
+  await refreshMiruAccountProfile();
   await refreshWorkspaces();
-  return { ...session, workspaces: miruAccount.workspaces };
+  return getMiruSessionSnapshot();
 }
 
 async function signupToMiru(payload: {
@@ -777,9 +778,10 @@ async function signupToMiru(payload: {
     getStringField(response, "token");
 
   if (token) {
-    const session = setMiruAccountFromAuth(response, baseUrl);
+    setMiruAccountFromAuth(response, baseUrl);
+    await refreshMiruAccountProfile();
     await refreshWorkspaces();
-    return { ...session, workspaces: miruAccount.workspaces };
+    return getMiruSessionSnapshot();
   }
 
   miruAccount.baseUrl = baseUrl;
@@ -826,6 +828,51 @@ async function refreshWorkspaces() {
   persistAccountStateInBackground();
 }
 
+async function refreshMiruAccountProfile() {
+  if (!(miruAccount.authToken && miruAccount.authEmail)) {
+    return getMiruSessionSnapshot();
+  }
+
+  try {
+    miruAccount.syncStatus = "syncing";
+    const response = await miruRequest("/users/_me");
+    const user = getNullableRecord(response.user);
+
+    if (user) {
+      miruAccount.user = {
+        ...(miruAccount.user ?? {}),
+        ...user,
+        token: miruAccount.authToken,
+      };
+    }
+
+    const company = getNullableRecord(response.company);
+    if (company) {
+      miruAccount.company = company;
+    }
+
+    miruAccount.companyRole =
+      getStringField(response, "company_role") || miruAccount.companyRole;
+    miruAccount.currentWorkspaceId =
+      getIdField(user, "current_workspace_id") ??
+      getIdField(user, "currentWorkspaceId") ??
+      getIdField(company, "id") ??
+      miruAccount.currentWorkspaceId;
+    miruAccount.syncError = "";
+    miruAccount.syncStatus = "synced";
+    miruAccount.lastSyncAt = new Date().toISOString();
+    persistAccountStateInBackground();
+  } catch (error) {
+    miruAccount.syncStatus = "offline";
+    miruAccount.syncError =
+      error instanceof Error
+        ? error.message
+        : "Could not refresh Miru profile.";
+  }
+
+  return getMiruSessionSnapshot();
+}
+
 async function openGoogleLogin(baseUrl?: string) {
   const normalizedBaseUrl = normalizeMiruBaseUrl(
     baseUrl ?? miruAccount.baseUrl
@@ -865,6 +912,7 @@ async function switchMiruWorkspace(workspaceId: number | string) {
   });
   miruAccount.currentWorkspaceId = workspaceId;
   miruAccount.company = response.company ?? miruAccount.company;
+  await refreshMiruAccountProfile();
   await refreshWorkspaces();
   persistAccountStateInBackground();
 
@@ -2541,6 +2589,7 @@ app.whenReady().then(async () => {
     setupNativeUiIPC();
     await loadTimerState();
     await loadAccountState();
+    await refreshMiruAccountProfile();
     createWindow();
     createTray();
     await installExtensions();
