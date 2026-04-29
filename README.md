@@ -21,11 +21,11 @@ Miru Time Tracking is MIT-licensed software.
 
 ## Downloads
 
-Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.3>
+Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.4>
 
-- [macOS arm64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.3/Miru.Time.Tracking-darwin-arm64-0.1.3.zip)
-- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.3/Miru.Time.Tracking-linux-x64-0.1.3.zip)
-- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.3/Miru.Time.Tracking-win32-x64-0.1.3.zip)
+- [macOS arm64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-darwin-arm64-0.1.4.zip)
+- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-linux-x64-0.1.4.zip)
+- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-win32-x64-0.1.4.zip)
 
 ## Highlights
 

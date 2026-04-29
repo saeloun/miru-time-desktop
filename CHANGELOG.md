@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 - 2026-04-29
+
+- Fixed the main timer hero controls so the timer and extra icon buttons no longer overlap in the compact popup.
+- Rebuilt the desktop app from the current verified timer stack and timesheet drill-down code.
+- Refreshed macOS, Linux, and Windows release ZIPs with URL-safe asset names.
+- Reinstalled and verified the macOS app locally for testing.
+- Verified release download links after publishing.
+
 ## 0.1.3 - 2026-04-29
 
 - Expanded Electron E2E coverage for Miru API-backed projects, entries, auth, signup, workspace switching, current timer sync, timer save, and manual entry create/edit/resume flows.

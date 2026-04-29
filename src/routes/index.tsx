@@ -1409,7 +1409,7 @@ function TimerHeroPanel({
         timerPanelClass
       )}
     >
-      <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <div
             className={cn(
@@ -1440,7 +1440,7 @@ function TimerHeroPanel({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid w-[5.5rem] shrink-0 grid-cols-2 gap-2">
           <button
             aria-label={t("timer.stopSave")}
             className={cn(
@@ -1460,7 +1460,7 @@ function TimerHeroPanel({
           <button
             aria-label={timer.running ? t("timer.pause") : t("timer.start")}
             className={cn(
-              "interactive-lift icon-motion grid size-12 place-items-center rounded-full shadow-lg transition",
+              "interactive-lift icon-motion grid size-10 place-items-center rounded-full shadow-lg transition",
               timer.running
                 ? "bg-white text-[#261257] hover:bg-white/90"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -1470,9 +1470,9 @@ function TimerHeroPanel({
             type="button"
           >
             {timer.running ? (
-              <Pause className="size-5" />
+              <Pause className="size-4" />
             ) : (
-              <Play className="ml-0.5 size-5" />
+              <Play className="ml-0.5 size-4" />
             )}
           </button>
           <button

@@ -1124,7 +1124,9 @@ test("saves a running desktop timer through Miru API and refreshes the sheet", a
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Stop and save" }).click();
 
-    await expect(page.getByText("Save from desktop timer")).toBeVisible();
+    await expect(
+      page.locator("p").filter({ hasText: "Save from desktop timer" })
+    ).toBeVisible();
     await expect
       .poll(() =>
         page.evaluate(() =>
