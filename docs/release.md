@@ -11,7 +11,9 @@
 ```bash
 npm run check
 npm run test
-npm run make
+npm run make:mac
+npm run make:linux
+npm run make:windows
 npm run test:e2e
 ```
 
@@ -42,12 +44,15 @@ The Forge GitHub publisher is configured for `vipulnsward/miru-time-desktop` as 
 npm run publish
 ```
 
-Use `npm run make` first when you only want local release artifacts. The macOS ZIP is generated at `out/make/zip/darwin/arm64/`.
+Use `npm run make:mac`, `npm run make:linux`, and `npm run make:windows` first when you only want local release artifacts. The portable ZIPs are generated under `out/make/zip/`.
 
 Manual release fallback:
 
 ```bash
-gh release create v0.1.1 out/make/zip/darwin/arm64/*.zip \
+gh release create v0.1.1 \
+  out/make/zip/darwin/arm64/*0.1.1.zip \
+  out/make/zip/linux/x64/*0.1.1.zip \
+  out/make/zip/win32/x64/*0.1.1.zip \
   --repo vipulnsward/miru-time-desktop \
   --title "Miru Time Tracking 0.1.1" \
   --notes-file /tmp/miru-time-desktop-release-notes.md

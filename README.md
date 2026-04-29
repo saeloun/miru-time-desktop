@@ -19,6 +19,14 @@ Miru Time Tracking is MIT-licensed software.
   <img src="docs/assets/screenshots/idle-recovery.png" alt="Miru Time Tracking idle recovery modal" width="260">
 </p>
 
+## Downloads
+
+Latest release: <https://github.com/vipulnsward/miru-time-desktop/releases/tag/v0.1.1>
+
+- [macOS arm64 ZIP](https://github.com/vipulnsward/miru-time-desktop/releases/download/v0.1.1/Miru.Time.Tracking-darwin-arm64-0.1.1.zip)
+- [Linux x64 ZIP](https://github.com/vipulnsward/miru-time-desktop/releases/download/v0.1.1/Miru.Time.Tracking-linux-x64-0.1.1.zip)
+- [Windows x64 ZIP](https://github.com/vipulnsward/miru-time-desktop/releases/download/v0.1.1/Miru.Time.Tracking-win32-x64-0.1.1.zip)
+
 ## Highlights
 
 - **Native macOS menu bar timer** with a stable-width time label and stateful tray icon colors for ready, running, paused, and idle.
@@ -76,6 +84,14 @@ npm run package
 ```
 
 `npm run package` creates an unpacked macOS app under `out/`. `npm run make` creates distributable release artifacts under `out/make/`.
+
+Portable ZIP builds for release:
+
+```bash
+npm run make:mac
+npm run make:linux
+npm run make:windows
+```
 
 ## Verification
 

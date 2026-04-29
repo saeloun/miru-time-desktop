@@ -58,6 +58,22 @@ The macOS ZIP is created under:
 out/make/zip/darwin/arm64/
 ```
 
+Portable cross-platform ZIP builds:
+
+```bash
+npm run make:mac
+npm run make:linux
+npm run make:windows
+```
+
+Those commands generate:
+
+```text
+out/make/zip/darwin/arm64/
+out/make/zip/linux/x64/
+out/make/zip/win32/x64/
+```
+
 ## E2E Verification
 
 ```bash
