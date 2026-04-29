@@ -634,6 +634,69 @@ test("renders idle recovery actions in the signed-in tracker", async () => {
   expect(state.idle).toBeNull();
 });
 
+test("keeps the main timer controls clear of the elapsed time", async () => {
+  await closeApp();
+  seedSignedInAccount();
+  await launchApp();
+
+  const page: Page = await firstWindow();
+
+  await expect(page.getByLabel("Account menu")).toBeVisible();
+  await expect(page.getByTestId("timer-display")).toBeVisible();
+  await expect(page.getByTestId("timer-controls")).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const timer = document.querySelector("[data-testid='timer-display']");
+    const controls = document.querySelector("[data-testid='timer-controls']");
+
+    if (!(timer && controls)) {
+      return null;
+    }
+
+    const timerBox = timer.getBoundingClientRect();
+    const controlsBox = controls.getBoundingClientRect();
+    const controlButtons = Array.from(controls.querySelectorAll("button")).map(
+      (button) => {
+        const box = button.getBoundingClientRect();
+        return {
+          bottom: box.bottom,
+          left: box.left,
+          right: box.right,
+          top: box.top,
+        };
+      }
+    );
+
+    return {
+      controlButtons,
+      controls: {
+        bottom: controlsBox.bottom,
+        left: controlsBox.left,
+        right: controlsBox.right,
+        top: controlsBox.top,
+      },
+      timer: {
+        bottom: timerBox.bottom,
+        left: timerBox.left,
+        right: timerBox.right,
+        top: timerBox.top,
+      },
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(layout?.timer.right).toBeLessThanOrEqual(
+    (layout?.controls.left ?? 0) - 8
+  );
+  expect(layout?.controlButtons).toHaveLength(4);
+  for (const button of layout?.controlButtons ?? []) {
+    expect(button.left).toBeGreaterThanOrEqual(layout?.controls.left ?? 0);
+    expect(button.right).toBeLessThanOrEqual(layout?.controls.right ?? 0);
+    expect(button.top).toBeGreaterThanOrEqual(layout?.controls.top ?? 0);
+    expect(button.bottom).toBeLessThanOrEqual(layout?.controls.bottom ?? 0);
+  }
+});
+
 test("persists timer context across app relaunch", async () => {
   let page: Page = await firstWindow();
 

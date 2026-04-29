@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 - 2026-04-29
+
+- Improved the main timer hero with a fixed control dock, tighter elapsed-time typography, and clearer spacing in the compact popup.
+- Added a packaged Electron regression spec that checks the elapsed time and timer controls do not overlap.
+- Rebuilt Apple Silicon, Intel macOS, Linux, and Windows release ZIPs.
+
 ## 0.1.4 - 2026-04-29
 
 - Fixed the main timer hero controls so the timer and extra icon buttons no longer overlap in the compact popup.

@@ -19,19 +19,21 @@ Miru Time Tracking is MIT-licensed software.
   <img src="docs/assets/screenshots/idle-recovery.png" alt="Miru Time Tracking idle recovery modal" width="260">
 </p>
 
+These screenshots are generated from the packaged Electron app flow used by the integration specs: signed-in timer, account/sync menu, and idle recovery.
+
 ## Downloads
 
-Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.4>
+Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.5>
 
-- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-darwin-arm64-0.1.4.zip)
-- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-darwin-x64-0.1.4.zip)
-- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-linux-x64-0.1.4.zip)
-- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-win32-x64-0.1.4.zip)
+- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-darwin-arm64-0.1.5.zip)
+- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-darwin-x64-0.1.5.zip)
+- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-linux-x64-0.1.5.zip)
+- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-win32-x64-0.1.5.zip)
 
 ## Highlights
 
 - **Native macOS menu bar timer** with a stable-width time label and stateful tray icon colors for ready, running, paused, and idle.
-- **Compact time tracker window** positioned below the menu bar, with high-contrast timer controls and a Miru-styled command surface.
+- **Compact time tracker window** positioned below the menu bar, with high-contrast timer controls, fixed-width icon dock, and a Miru-styled command surface.
 - **Local-first tracking** through renderer local storage plus persisted Electron `userData` timer state, so timers survive app relaunches.
 - **Resumable timer stack** so starting a new timer keeps the previous timer available to resume or remove.
 - **Timesheet drill-down** from Today, This week, and Entries summary cards into detailed time entries.
@@ -173,6 +175,7 @@ Covered flows include:
 - Shared desktop timer behind the renderer.
 - Native tray title and icon state.
 - Idle recovery actions.
+- Timer hero layout guard so elapsed time and controls do not overlap.
 - Start-new-timer and paused timer resume flows.
 - Timer context persistence across relaunch.
 - Account menu close/logout behavior.

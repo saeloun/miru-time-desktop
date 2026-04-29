@@ -1409,7 +1409,7 @@ function TimerHeroPanel({
         timerPanelClass
       )}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_5.75rem] items-center gap-3">
         <div className="min-w-0">
           <div
             className={cn(
@@ -1422,9 +1422,10 @@ function TimerHeroPanel({
           </div>
           <p
             className={cn(
-              "font-mono font-semibold text-4xl tabular-nums tracking-normal",
+              "max-w-full overflow-hidden whitespace-nowrap font-mono font-semibold text-[2.65rem] tabular-nums leading-none tracking-normal",
               isRunning ? "text-white" : "text-foreground"
             )}
+            data-testid="timer-display"
           >
             {formatDuration(timer.elapsedSeconds)}
           </p>
@@ -1440,11 +1441,21 @@ function TimerHeroPanel({
           </p>
         </div>
 
-        <div className="grid w-[5.5rem] shrink-0 grid-cols-2 gap-2">
+        <div
+          aria-label="Timer controls"
+          className={cn(
+            "grid w-[5.75rem] shrink-0 grid-cols-2 gap-1.5 rounded-xl border p-1.5 shadow-sm",
+            isRunning
+              ? "border-white/15 bg-white/10"
+              : "border-border bg-white/80"
+          )}
+          data-testid="timer-controls"
+          role="toolbar"
+        >
           <button
             aria-label={t("timer.stopSave")}
             className={cn(
-              "interactive-lift icon-motion grid size-10 place-items-center rounded-lg border transition",
+              "interactive-lift icon-motion grid size-9 place-items-center rounded-lg border transition",
               isRunning
                 ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
                 : "border-border bg-white text-foreground hover:bg-muted",
@@ -1460,7 +1471,7 @@ function TimerHeroPanel({
           <button
             aria-label={timer.running ? t("timer.pause") : t("timer.start")}
             className={cn(
-              "interactive-lift icon-motion grid size-10 place-items-center rounded-full shadow-lg transition",
+              "interactive-lift icon-motion grid size-9 place-items-center rounded-full shadow-md transition",
               timer.running
                 ? "bg-white text-[#261257] hover:bg-white/90"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -1478,7 +1489,7 @@ function TimerHeroPanel({
           <button
             aria-label={t("timer.reset")}
             className={cn(
-              "interactive-lift icon-motion grid size-10 place-items-center rounded-lg border transition",
+              "interactive-lift icon-motion grid size-9 place-items-center rounded-lg border transition",
               isRunning
                 ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
                 : "border-border bg-white text-foreground hover:bg-muted"
@@ -1492,7 +1503,7 @@ function TimerHeroPanel({
           <button
             aria-label={t("timer.startNew")}
             className={cn(
-              "interactive-lift icon-motion grid size-10 place-items-center rounded-lg border transition",
+              "interactive-lift icon-motion grid size-9 place-items-center rounded-lg border transition",
               isRunning
                 ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
                 : "border-border bg-white text-foreground hover:bg-muted",
