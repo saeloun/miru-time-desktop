@@ -742,7 +742,7 @@ async function loginToMiru(payload: {
 
   setMiruAccountFromAuth(response, baseUrl);
   await refreshMiruAccountProfile();
-  await refreshWorkspaces();
+  await refreshWorkspaces({ required: false });
   return getMiruSessionSnapshot();
 }
 
@@ -780,7 +780,7 @@ async function signupToMiru(payload: {
   if (token) {
     setMiruAccountFromAuth(response, baseUrl);
     await refreshMiruAccountProfile();
-    await refreshWorkspaces();
+    await refreshWorkspaces({ required: false });
     return getMiruSessionSnapshot();
   }
 
@@ -818,14 +818,27 @@ async function logoutFromMiru() {
   return getMiruSessionSnapshot();
 }
 
-async function refreshWorkspaces() {
+async function refreshWorkspaces({ required = true } = {}) {
   if (!miruAccount.authToken) {
     return;
   }
 
-  const response = await miruRequest("/workspaces");
-  miruAccount.workspaces = response.workspaces ?? [];
-  persistAccountStateInBackground();
+  try {
+    const response = await miruRequest("/workspaces");
+    miruAccount.workspaces = response.workspaces ?? [];
+    persistAccountStateInBackground();
+  } catch (error) {
+    if (required) {
+      throw error;
+    }
+
+    miruAccount.syncStatus = "offline";
+    miruAccount.syncError =
+      error instanceof Error
+        ? error.message
+        : "Could not refresh Miru workspaces.";
+    persistAccountStateInBackground();
+  }
 }
 
 async function refreshMiruAccountProfile() {

@@ -227,11 +227,13 @@ async function createFakeMiruApiServer({
   },
   currentTimers = [],
   timeTracking = defaultTimeTrackingPayload(),
+  workspacesStatus = 200,
 }: {
   currentUser?: Record<string, unknown>;
   currentTimer?: Record<string, unknown>;
   currentTimers?: Record<string, unknown>[];
   timeTracking?: FakeTimeTrackingPayload;
+  workspacesStatus?: number;
 } = {}): Promise<FakeMiruApiServer> {
   const requests: RecordedApiRequest[] = [];
   let activeWorkspaceId: number | string = 11;
@@ -298,12 +300,17 @@ async function createFakeMiruApiServer({
     }
 
     if (request.method === "GET" && apiPath === "/workspaces") {
-      json(200, {
-        workspaces: [
-          { id: 11, name: "Miru QA" },
-          { id: 12, name: "Saeloun Studio" },
-        ],
-      });
+      json(
+        workspacesStatus,
+        workspacesStatus === 200
+          ? {
+              workspaces: [
+                { id: 11, name: "Miru QA" },
+                { id: 12, name: "Saeloun Studio" },
+              ],
+            }
+          : { error: "Workspace sync is temporarily unavailable." }
+      );
       return;
     }
 
@@ -983,6 +990,43 @@ test("logs in through Miru API and switches workspaces", async () => {
     await expect(page.getByText("Workspace switched.")).toBeVisible();
 
     expect(findApiRequest(server, "PUT", "/api/v1/workspaces/12")).toBeTruthy();
+  } finally {
+    await closeApp();
+    await server.close();
+  }
+});
+
+test("keeps a production login when workspace refresh is unavailable", async () => {
+  await closeApp();
+  const server = await createFakeMiruApiServer({ workspacesStatus: 500 });
+
+  try {
+    seedSignedOutAccount(server.baseUrl);
+    await launchApp();
+
+    const page: Page = await firstWindow();
+
+    await page.locator("input[type='email']").fill("employee@miru.test");
+    await page.locator("input[type='password']").fill("password123");
+    await page.locator("button").filter({ hasText: "Log in" }).last().click();
+
+    await expect(page.getByLabel("Account menu")).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.miruApi.getSession().then((session) => ({
+            signedIn: session.signedIn,
+            syncError: session.syncError,
+          }))
+        )
+      )
+      .toEqual({
+        signedIn: true,
+        syncError: "Workspace sync is temporarily unavailable.",
+      });
+    expect(findApiRequest(server, "POST", "/api/v1/users/login")).toBeTruthy();
+    expect(findApiRequest(server, "GET", "/api/v1/users/_me")).toBeTruthy();
+    expect(findApiRequest(server, "GET", "/api/v1/workspaces")).toBeTruthy();
   } finally {
     await closeApp();
     await server.close();

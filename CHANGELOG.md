@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - 2026-04-30
+
+- Fixed production desktop login so a successful account login is not rejected when the follow-up workspace refresh is temporarily unavailable.
+- Kept profile refresh for avatars and locale while preserving the signed-in session for local-first tracking.
+- Added packaged Electron coverage for the production login fallback path.
+
 ## 0.1.5 - 2026-04-29
 
 - Improved the main timer hero with a fixed control dock, tighter elapsed-time typography, and clearer spacing in the compact popup.

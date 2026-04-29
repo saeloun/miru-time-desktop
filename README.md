@@ -24,12 +24,12 @@ These screenshots are generated from the packaged Electron app flow used by the 
 
 ## Downloads
 
-Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.5>
+Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.6>
 
-- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-darwin-arm64-0.1.5.zip)
-- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-darwin-x64-0.1.5.zip)
-- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-linux-x64-0.1.5.zip)
-- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.5/Miru.Time.Tracking-win32-x64-0.1.5.zip)
+- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-darwin-arm64-0.1.6.zip)
+- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-darwin-x64-0.1.6.zip)
+- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-linux-x64-0.1.6.zip)
+- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-win32-x64-0.1.6.zip)
 
 ## Highlights
 

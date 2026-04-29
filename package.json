@@ -1,7 +1,7 @@
 {
   "name": "miru-time-tracking",
   "productName": "Miru Time Tracking",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A local-first macOS desktop time tracking app for Miru teams.",
   "main": ".vite/build/main.js",
   "homepage": "https://app.miru.so",

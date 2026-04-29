@@ -55,12 +55,12 @@ Use `bun run make:mac`, `bun run make:linux`, and `bun run make:windows` first w
 Manual release fallback:
 
 ```bash
-gh release create v0.1.5 \
-  out/make/zip/darwin/arm64/*0.1.5.zip \
-  out/make/zip/darwin/x64/*0.1.5.zip \
-  out/make/zip/linux/x64/*0.1.5.zip \
-  out/make/zip/win32/x64/*0.1.5.zip \
+gh release create v0.1.6 \
+  out/make/zip/darwin/arm64/*0.1.6.zip \
+  out/make/zip/darwin/x64/*0.1.6.zip \
+  out/make/zip/linux/x64/*0.1.6.zip \
+  out/make/zip/win32/x64/*0.1.6.zip \
   --repo saeloun/miru-time-desktop \
-  --title "Miru Time Tracking 0.1.5" \
-  --notes-file docs/releases/0.1.5.md
+  --title "Miru Time Tracking 0.1.6" \
+  --notes-file docs/releases/0.1.6.md
 ```

@@ -1119,7 +1119,16 @@ function HomePage() {
         return;
       }
 
-      setSyncMessage(session.signedIn ? "Connected." : session.syncError);
+      if (!session.signedIn) {
+        setSyncMessage(session.syncError);
+        return;
+      }
+
+      setSyncMessage(
+        session.syncStatus === "offline" && session.syncError
+          ? `Connected. ${session.syncError}`
+          : "Connected."
+      );
     } catch (error) {
       setSyncMessage(
         error instanceof Error ? error.message : "Miru sync failed."
