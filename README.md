@@ -23,7 +23,8 @@ Miru Time Tracking is MIT-licensed software.
 
 Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.4>
 
-- [macOS arm64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-darwin-arm64-0.1.4.zip)
+- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-darwin-arm64-0.1.4.zip)
+- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-darwin-x64-0.1.4.zip)
 - [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-linux-x64-0.1.4.zip)
 - [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.4/Miru.Time.Tracking-win32-x64-0.1.4.zip)
 
@@ -91,6 +92,8 @@ Portable ZIP builds for release:
 
 ```bash
 rtk mise exec -- bun run make:mac
+rtk mise exec -- bun run make:mac:apple
+rtk mise exec -- bun run make:mac:intel
 rtk mise exec -- bun run make:linux
 rtk mise exec -- bun run make:windows
 ```

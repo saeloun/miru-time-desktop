@@ -3,6 +3,7 @@
 ## 0.1.4 - 2026-04-29
 
 - Fixed the main timer hero controls so the timer and extra icon buttons no longer overlap in the compact popup.
+- Added separate Apple Silicon and Intel macOS release builds.
 - Rebuilt the desktop app from the current verified timer stack and timesheet drill-down code.
 - Refreshed macOS, Linux, and Windows release ZIPs with URL-safe asset names.
 - Reinstalled and verified the macOS app locally for testing.

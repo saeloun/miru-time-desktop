@@ -14,6 +14,8 @@ rtk mise exec -- bun run test
 rtk mise exec -- bun run package
 rtk mise exec -- bun run test:e2e
 rtk mise exec -- bun run make:mac
+rtk mise exec -- bun run make:mac:apple
+rtk mise exec -- bun run make:mac:intel
 rtk mise exec -- bun run make:linux
 rtk mise exec -- bun run make:windows
 rtk mise exec -- bun audit
@@ -48,13 +50,14 @@ Keep release copy in `CHANGELOG.md` and `docs/releases/<version>.md`. Use the ve
 rtk mise exec -- bun run publish
 ```
 
-Use `bun run make:mac`, `bun run make:linux`, and `bun run make:windows` first when you only want local release artifacts. The portable ZIPs are generated under `out/make/zip/`.
+Use `bun run make:mac`, `bun run make:linux`, and `bun run make:windows` first when you only want local release artifacts. `make:mac` builds both Apple Silicon and Intel ZIPs. The portable ZIPs are generated under `out/make/zip/`.
 
 Manual release fallback:
 
 ```bash
 gh release create v0.1.4 \
   out/make/zip/darwin/arm64/*0.1.4.zip \
+  out/make/zip/darwin/x64/*0.1.4.zip \
   out/make/zip/linux/x64/*0.1.4.zip \
   out/make/zip/win32/x64/*0.1.4.zip \
   --repo saeloun/miru-time-desktop \
