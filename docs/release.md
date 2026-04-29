@@ -9,12 +9,14 @@
 ## Local Verification
 
 ```bash
-npm run check
-npm run test
-npm run make:mac
-npm run make:linux
-npm run make:windows
-npm run test:e2e
+rtk mise exec -- bun run check
+rtk mise exec -- bun run test
+rtk mise exec -- bun run package
+rtk mise exec -- bun run test:e2e
+rtk mise exec -- bun run make:mac
+rtk mise exec -- bun run make:linux
+rtk mise exec -- bun run make:windows
+rtk mise exec -- bun audit
 ```
 
 ## Manual Smoke Test
@@ -38,22 +40,24 @@ Use a temporary Electron `userData` directory when testing with a real Miru toke
 
 ## GitHub Release
 
-The Forge GitHub publisher is configured for `vipulnsward/miru-time-desktop` as a draft release.
+The Forge GitHub publisher is configured for `saeloun/miru-time-desktop` as a draft release.
+
+Keep release copy in `CHANGELOG.md` and `docs/releases/<version>.md`. Use the versioned release notes file for GitHub Releases so the website, release page, and docs stay in sync.
 
 ```bash
-npm run publish
+rtk mise exec -- bun run publish
 ```
 
-Use `npm run make:mac`, `npm run make:linux`, and `npm run make:windows` first when you only want local release artifacts. The portable ZIPs are generated under `out/make/zip/`.
+Use `bun run make:mac`, `bun run make:linux`, and `bun run make:windows` first when you only want local release artifacts. The portable ZIPs are generated under `out/make/zip/`.
 
 Manual release fallback:
 
 ```bash
-gh release create v0.1.1 \
-  out/make/zip/darwin/arm64/*0.1.1.zip \
-  out/make/zip/linux/x64/*0.1.1.zip \
-  out/make/zip/win32/x64/*0.1.1.zip \
-  --repo vipulnsward/miru-time-desktop \
-  --title "Miru Time Tracking 0.1.1" \
-  --notes-file /tmp/miru-time-desktop-release-notes.md
+gh release create v0.1.2 \
+  out/make/zip/darwin/arm64/*0.1.2.zip \
+  out/make/zip/linux/x64/*0.1.2.zip \
+  out/make/zip/win32/x64/*0.1.2.zip \
+  --repo saeloun/miru-time-desktop \
+  --title "Miru Time Tracking 0.1.2" \
+  --notes-file docs/releases/0.1.2.md
 ```

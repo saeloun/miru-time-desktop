@@ -9,7 +9,7 @@ Miru Time Tracking is MIT-licensed software.
 - Miru web app: <https://app.miru.so>
 - Miru product site: <https://miru.so>
 - Miru web source: <https://github.com/saeloun/miru-web>
-- Desktop source: <https://github.com/vipulnsward/miru-time-desktop>
+- Desktop source: <https://github.com/saeloun/miru-time-desktop>
 
 ## Screenshots
 
@@ -21,11 +21,11 @@ Miru Time Tracking is MIT-licensed software.
 
 ## Downloads
 
-Latest release: <https://github.com/vipulnsward/miru-time-desktop/releases/tag/v0.1.1>
+Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.2>
 
-- [macOS arm64 ZIP](https://github.com/vipulnsward/miru-time-desktop/releases/download/v0.1.1/Miru.Time.Tracking-darwin-arm64-0.1.1.zip)
-- [Linux x64 ZIP](https://github.com/vipulnsward/miru-time-desktop/releases/download/v0.1.1/Miru.Time.Tracking-linux-x64-0.1.1.zip)
-- [Windows x64 ZIP](https://github.com/vipulnsward/miru-time-desktop/releases/download/v0.1.1/Miru.Time.Tracking-win32-x64-0.1.1.zip)
+- [macOS arm64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.2/Miru.Time.Tracking-darwin-arm64-0.1.2.zip)
+- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.2/Miru.Time.Tracking-linux-x64-0.1.2.zip)
+- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.2/Miru.Time.Tracking-win32-x64-0.1.2.zip)
 
 ## Highlights
 
@@ -77,36 +77,39 @@ MIRU_ALLOW_BASE_URL_OVERRIDE=true npm run start
 Use Node 24, matching CI.
 
 ```bash
-npm ci
-npm run check
-npm run test
-npm run package
+rtk mise exec -- bun install
+rtk mise exec -- bun run check
+rtk mise exec -- bun run test
+rtk mise exec -- bun run package
 ```
 
-`npm run package` creates an unpacked macOS app under `out/`. `npm run make` creates distributable release artifacts under `out/make/`.
+`bun run package` creates an unpacked macOS app under `out/`. `bun run make` creates distributable release artifacts under `out/make/`.
 
 Portable ZIP builds for release:
 
 ```bash
-npm run make:mac
-npm run make:linux
-npm run make:windows
+rtk mise exec -- bun run make:mac
+rtk mise exec -- bun run make:linux
+rtk mise exec -- bun run make:windows
 ```
 
 ## Verification
 
 ```bash
-npm run test
-npm run test:e2e
-npm run package
+rtk mise exec -- bun run check
+rtk mise exec -- bun run test
+rtk mise exec -- bun run test:e2e
+rtk mise exec -- bun run package
 ```
 
 Useful full release check:
 
 ```bash
-npm run test
-npm run test:e2e
-npm run make
+rtk mise exec -- bun run check
+rtk mise exec -- bun run test
+rtk mise exec -- bun run test:e2e
+rtk mise exec -- bun run make
+rtk mise exec -- bun audit
 ```
 
 The Playwright Electron specs launch the packaged app in a temporary profile so tests do not touch your real timer or Miru session.
@@ -116,7 +119,7 @@ The Playwright Electron specs launch the packaged app in a temporary profile so 
 Package the macOS app:
 
 ```bash
-npm run package
+rtk mise exec -- bun run package
 ```
 
 Open the packaged app:
@@ -135,7 +138,7 @@ open "/Applications/Miru Time Tracking.app"
 Build a distributable ZIP:
 
 ```bash
-npm run make
+rtk mise exec -- bun run make
 ```
 
 The ZIP is generated under:
@@ -168,14 +171,17 @@ Covered flows include:
 - Timer context persistence across relaunch.
 - Account menu close/logout behavior.
 - Miru user locale rendering.
+- RTL locale layout.
+- Live timesheet history and date switching.
 
 ## Release Prep
 
-1. Run `npm run test`.
-2. Run `npm run test:e2e`.
-3. Run `npm run make`.
-4. Open the packaged app and confirm the Miru icon, tray timer, account popover, and idle modal render correctly.
-5. Publish the generated ZIP manually or run `npm run publish` when ready for a draft GitHub release.
+1. Run `rtk mise exec -- bun run check`.
+2. Run `rtk mise exec -- bun run test`.
+3. Run `rtk mise exec -- bun run test:e2e`.
+4. Run `rtk mise exec -- bun run make`.
+5. Open the packaged app and confirm the Miru icon, tray timer, account popover, and idle modal render correctly.
+6. Publish the generated ZIP manually or run `rtk mise exec -- bun run publish` when ready for a draft GitHub release.
 
 Additional release notes live in [Release checklist](docs/release.md).
 

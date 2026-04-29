@@ -221,7 +221,7 @@ function checkForUpdates() {
   updateElectronApp({
     updateSource: {
       type: UpdateSourceType.ElectronPublicUpdateService,
-      repo: "vipulnsward/miru-time-desktop",
+      repo: "saeloun/miru-time-desktop",
     },
   });
 }

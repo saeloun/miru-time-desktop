@@ -74,6 +74,13 @@ function isoDateFromToday(offsetDays: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatShortDate(date: string, locale = "en-US") {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${date}T00:00:00`));
+}
+
 test.beforeAll(async () => {
   await launchApp();
 });
@@ -234,6 +241,41 @@ test("applies idle recovery branches through the desktop timer", async () => {
   await page.evaluate(() => window.miruTimer.reset());
 });
 
+test("renders idle recovery actions in the signed-in tracker", async () => {
+  await electronApp.close();
+  seedSignedInAccount();
+  await launchApp();
+
+  const page: Page = await electronApp.firstWindow();
+
+  await expect(page.getByLabel("Account menu")).toBeVisible();
+  await page.evaluate(() => window.miruTimer.reset());
+  await page.evaluate(() => window.miruTimer.start());
+  await page.waitForFunction(() =>
+    window.miruTimer.getState().then((state) => state.running)
+  );
+  await page.evaluate(() =>
+    window.miruTimer.forceIdleForTesting?.(15 * 60 * 1000)
+  );
+
+  const idleDialog = page.getByRole("dialog", {
+    name: "Idle timer actions",
+  });
+  await expect(idleDialog).toBeVisible();
+  await expect(page.getByLabel("Trim idle and continue")).toBeVisible();
+  await expect(page.getByLabel("Trim idle and restart")).toBeVisible();
+  await expect(page.getByLabel("Keep idle time")).toBeVisible();
+
+  await page.getByLabel("Keep idle time").click();
+  await expect(idleDialog).toBeHidden();
+
+  const state = await page.evaluate(() => window.miruTimer.getState());
+  await page.evaluate(() => window.miruTimer.reset());
+
+  expect(state.running).toBe(true);
+  expect(state.idle).toBeNull();
+});
+
 test("persists timer context across app relaunch", async () => {
   let page: Page = await electronApp.firstWindow();
 
@@ -324,6 +366,19 @@ test("falls back cleanly for every supported Miru locale", async () => {
   await expect(page.getByText("ko", { exact: true })).toBeVisible();
 });
 
+test("uses right-to-left layout for RTL Miru locales", async () => {
+  await electronApp.close();
+  seedSignedInAccount("ar");
+  await launchApp();
+
+  const page: Page = await electronApp.firstWindow();
+
+  await page.waitForSelector("text=اليوم");
+  await expect(page.locator("[dir='rtl']")).toBeVisible();
+  await page.getByLabel("Account menu").click();
+  await expect(page.getByText("اللغة")).toBeVisible();
+});
+
 test("shows live timesheet history across past days", async () => {
   await electronApp.close();
   seedSignedInAccount();
@@ -373,5 +428,11 @@ test("shows live timesheet history across past days", async () => {
   await expect(page.getByText("Today local task")).toBeVisible();
   await page.getByRole("button", { name: "History" }).click();
   await expect(page.getByText("Live timesheet")).toBeVisible();
+  await expect(page.getByText(formatShortDate(yesterday))).toBeVisible();
   await expect(page.getByText("Past local task")).toBeVisible();
+
+  await page.locator("input[type='date']").fill(yesterday);
+  await expect(page.getByText("Live timesheet")).toBeHidden();
+  await expect(page.getByText("Past local task")).toBeVisible();
+  await expect(page.getByText("Today local task")).toBeHidden();
 });

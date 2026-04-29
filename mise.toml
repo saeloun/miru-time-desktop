@@ -1,0 +1,6 @@
+[tools]
+bun = "1.3.12"
+node = "24"
+
+[env]
+MISE_NODE_COREPACK = "true"

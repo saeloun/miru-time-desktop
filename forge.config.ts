@@ -28,7 +28,7 @@ const config: ForgeConfig = {
       name: "@electron-forge/publisher-github",
       config: {
         repository: {
-          owner: "vipulnsward",
+          owner: "saeloun",
           name: "miru-time-desktop",
         },
         draft: true,

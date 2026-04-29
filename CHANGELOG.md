@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2 - 2026-04-29
+
+- Moved the canonical repository and release links to `saeloun/miru-time-desktop`.
+- Switched the repo workflow to Bun through mise with a repo-local agent guide.
+- Updated runtime and development dependencies to their latest compatible releases.
+- Added release notes maintenance under `docs/releases/`.
+- Expanded Electron E2E coverage for idle recovery UI, RTL locale layout, and live timesheet date switching.
+- Cleared the Bun dependency audit with top-level transitive overrides.
+- Kept release download links URL-safe for macOS, Linux, and Windows ZIP builds.
+
 ## 0.1.1 - 2026-04-29
 
 - Defaulted production Miru sync to `https://app.miru.so`.
