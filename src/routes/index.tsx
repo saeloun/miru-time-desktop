@@ -17,7 +17,6 @@ import {
   Power,
   RefreshCw,
   RotateCcw,
-  Settings,
   Square,
   TimerReset,
   Trash2,
@@ -180,6 +179,22 @@ function HomePage() {
       })
     );
   }, [timer.notes, timer.projectId, timer.taskId]);
+
+  useEffect(() => {
+    if (!showSync) {
+      return;
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowSync(false);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showSync]);
 
   useEffect(() => {
     window.miruTimer
@@ -613,7 +628,7 @@ function HomePage() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
+    <div className="relative flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl">
       <header className="draglayer grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 border-b bg-white/95 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <img
@@ -628,23 +643,21 @@ function HomePage() {
             <p className="text-muted-foreground text-xs">Employee tracker</p>
           </div>
         </div>
-        <button
-          className={cn(
-            "no-drag flex size-8 items-center justify-center rounded-md border text-muted-foreground transition",
-            showSync
-              ? "border-primary/30 bg-primary/10 text-primary"
-              : "border-transparent hover:border-border hover:bg-muted hover:text-foreground"
-          )}
-          onClick={() => setShowSync((visible) => !visible)}
-          title="Preferences"
-          type="button"
-        >
-          {miruSession?.signedIn ? (
+        {miruSession?.signedIn && (
+          <button
+            className={cn(
+              "no-drag flex size-8 items-center justify-center rounded-md border text-muted-foreground transition",
+              showSync
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-transparent hover:border-border hover:bg-muted hover:text-foreground"
+            )}
+            onClick={() => setShowSync((visible) => !visible)}
+            title="Account menu"
+            type="button"
+          >
             <UserRound className="size-4" />
-          ) : (
-            <Settings className="size-4" />
-          )}
-        </button>
+          </button>
+        )}
       </header>
 
       {!miruSession?.signedIn ? (
@@ -829,24 +842,6 @@ function HomePage() {
               />
             )}
 
-            {showSync && (
-              <SyncPanel
-                authForm={authForm}
-                authMode={authMode}
-                idleThresholdSeconds={timer.idleThresholdSeconds}
-                miruSession={miruSession}
-                onAuthFormChange={setAuthForm}
-                onAuthModeChange={setAuthMode}
-                onIdleThresholdChange={changeIdleThreshold}
-                onLogout={logoutMiru}
-                onQuit={() => window.nativeDialog.quitApp()}
-                onSubmitAuth={submitMiruAuth}
-                onSyncTimer={syncMiruTimer}
-                onWorkspaceChange={switchWorkspace}
-                syncMessage={syncMessage}
-              />
-            )}
-
             <section className="mt-3 min-h-0 flex-1 rounded-lg border bg-background shadow-sm">
               <div className="flex items-center justify-between border-b p-3">
                 <div>
@@ -909,6 +904,37 @@ function HomePage() {
               )}
             </section>
           </main>
+
+          {showSync && (
+            <div className="absolute inset-0 z-40">
+              <button
+                aria-label="Close account menu"
+                className="absolute inset-0 bg-black/5"
+                onClick={() => setShowSync(false)}
+                type="button"
+              />
+              <div className="no-drag absolute top-16 right-3 w-[calc(100%-1.5rem)] max-w-sm">
+                <SyncPanel
+                  authForm={authForm}
+                  authMode={authMode}
+                  idleThresholdSeconds={timer.idleThresholdSeconds}
+                  miruSession={miruSession}
+                  onAuthFormChange={setAuthForm}
+                  onAuthModeChange={setAuthMode}
+                  onIdleThresholdChange={changeIdleThreshold}
+                  onLogout={() => {
+                    void logoutMiru();
+                    setShowSync(false);
+                  }}
+                  onQuit={() => window.nativeDialog.quitApp()}
+                  onSubmitAuth={submitMiruAuth}
+                  onSyncTimer={syncMiruTimer}
+                  onWorkspaceChange={switchWorkspace}
+                  syncMessage={syncMessage}
+                />
+              </div>
+            </div>
+          )}
 
           {entryDialog && (
             <EntryEditorDialog
@@ -1238,43 +1264,44 @@ function SyncPanel({
   const accountName = getAccountName(miruSession?.user) || "Miru user";
   const accountEmail = getAccountEmail(miruSession?.user);
   const status = miruSession?.syncStatus ?? "local";
-  const StatusIcon = status === "offline" || status === "error" ? CloudOff : Cloud;
+  const StatusIcon =
+    status === "offline" || status === "error" ? CloudOff : Cloud;
 
   if (miruSession?.signedIn) {
     return (
-      <section className="mt-3 rounded-lg border bg-background p-3 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-sm">
-              {getInitials(accountName || accountEmail || "M")}
+      <section className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border bg-background/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-xl">
+        <div className="rounded-lg bg-muted/40 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-sm">
+                {getInitials(accountName || accountEmail || "M")}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-sm">{accountName}</p>
+                <p className="truncate text-muted-foreground text-xs">
+                  {accountEmail || "Connected to Miru"}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-sm">{accountName}</p>
-              <p className="truncate text-muted-foreground text-xs">
-                {accountEmail || "Connected to Miru"}
-              </p>
-            </div>
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
+                status === "synced"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : status === "syncing"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-background text-muted-foreground"
+              )}
+            >
+              <StatusIcon className="size-3" />
+              {formatSyncStatus(status)}
+            </span>
           </div>
-          <span
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium",
-              status === "synced"
-                ? "bg-emerald-50 text-emerald-700"
-                : status === "syncing"
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground"
-            )}
-          >
-            <StatusIcon className="size-3" />
-            {formatSyncStatus(status)}
-          </span>
-        </div>
 
-        <div className="mt-3 grid gap-3 rounded-md border bg-muted/30 p-3">
-          <div className="flex items-start gap-2">
+          <div className="mt-3 flex items-start gap-2 rounded-md border bg-background p-2">
             <Building2 className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-xs text-muted-foreground">
+              <p className="font-medium text-muted-foreground text-xs">
                 Workspace
               </p>
               {miruSession.workspaces.length > 1 ? (
@@ -1298,18 +1325,24 @@ function SyncPanel({
               )}
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={() => onSyncTimer("pull")} variant="outline">
-              <ArrowDownToLine />
-              Pull timer
-            </Button>
-            <Button onClick={() => onSyncTimer("push")} variant="outline">
-              <ArrowUpFromLine />
-              Push timer
-            </Button>
-          </div>
+        <div className="mt-2 grid gap-1">
+          <MenuAction
+            description="Use the current web timer in this desktop tracker."
+            icon={<ArrowDownToLine className="size-4" />}
+            label="Pull timer from Miru"
+            onClick={() => onSyncTimer("pull")}
+          />
+          <MenuAction
+            description="Send this desktop timer state to Miru web."
+            icon={<ArrowUpFromLine className="size-4" />}
+            label="Push timer to Miru"
+            onClick={() => onSyncTimer("push")}
+          />
+        </div>
 
+        <div className="mt-2 rounded-lg border bg-background p-3">
           <FieldLabel label="Idle prompt">
             <select
               className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
@@ -1327,15 +1360,17 @@ function SyncPanel({
           </FieldLabel>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <Button onClick={onLogout} variant="outline">
-            <LogOut />
-            Log out
-          </Button>
-          <Button onClick={onQuit} variant="ghost">
-            <Power />
-            Quit
-          </Button>
+        <div className="mt-2 grid gap-1 border-t pt-2">
+          <MenuAction
+            icon={<LogOut className="size-4" />}
+            label="Log out"
+            onClick={onLogout}
+          />
+          <MenuAction
+            icon={<Power className="size-4" />}
+            label="Quit Miru Time Tracking"
+            onClick={onQuit}
+          />
         </div>
 
         {syncMessage && (
@@ -1452,6 +1487,38 @@ function SyncPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function MenuAction({
+  description,
+  icon,
+  label,
+  onClick,
+}: {
+  description?: string;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="grid grid-cols-[2rem_1fr] items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-muted"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-medium text-sm">{label}</span>
+        {description && (
+          <span className="mt-0.5 block truncate text-muted-foreground text-xs">
+            {description}
+          </span>
+        )}
+      </span>
+    </button>
   );
 }
 
