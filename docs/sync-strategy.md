@@ -14,6 +14,7 @@ Renderer calls:
 - `window.miruApi.switchWorkspace(workspaceId)`
 - `window.miruApi.syncCurrentTimer("push" | "pull")`
 - `window.miruApi.saveTimerEntry({ projectId, userId })`
+- `window.miruTimer.startNew()`, `resumeSlot(timerId)`, and `deleteSlot(timerId)`
 
 Main process responsibilities:
 
@@ -39,11 +40,39 @@ PUT /api/v1/desktop/current_timer
     "billable": true,
     "elapsed_ms": 123000,
     "notes": "Build timer UI",
+    "project_id": 42,
     "project_name": "Northstar Labs / Platform redesign",
     "running": true,
     "started_at": "2026-04-28T15:30:00.000Z",
+    "task_id": "time",
     "task_name": "Development"
-  }
+  },
+  "current_timers": [
+    {
+      "id": "current",
+      "billable": true,
+      "elapsed_ms": 123000,
+      "notes": "Build timer UI",
+      "project_id": 42,
+      "project_name": "Northstar Labs / Platform redesign",
+      "running": true,
+      "started_at": "2026-04-28T15:30:00.000Z",
+      "task_id": "time",
+      "task_name": "Development"
+    },
+    {
+      "id": "timer-queued",
+      "billable": false,
+      "elapsed_ms": 1800000,
+      "notes": "Queued review",
+      "project_id": 42,
+      "project_name": "Northstar Labs / Platform redesign",
+      "running": false,
+      "started_at": null,
+      "task_id": "time",
+      "task_name": "Development"
+    }
+  ]
 }
 ```
 
@@ -55,11 +84,14 @@ PUT /api/v1/desktop/current_timer
     "billable": true,
     "elapsed_ms": 123000,
     "notes": "Build timer UI",
+    "project_id": 42,
     "project_name": "Northstar Labs / Platform redesign",
     "running": true,
     "started_at": "2026-04-28T15:30:00.000Z",
+    "task_id": "time",
     "task_name": "Development"
-  }
+  },
+  "current_timers": []
 }
 ```
 
@@ -67,6 +99,6 @@ PUT /api/v1/desktop/current_timer
 
 - Push when the desktop timer starts, pauses, resets, or changes context.
 - Pull on login, workspace switch, or explicit refresh.
-- If both sides changed while offline, keep the active running timer and preserve the other side as a draft time entry candidate.
+- If both sides changed while offline, keep the active running timer and preserve the other timer in the paused timer stack.
 
-The desktop app exposes the bridge, local-first fallback, and native tray controls. Miru web owns the `desktop/current_timer` endpoint so the active timer can move between the web app and the macOS tracker.
+The desktop app exposes the bridge, local-first fallback, native tray controls, and a paused timer stack. Miru web owns the `desktop/current_timer` endpoint so active and paused timers can move between the web app and the macOS tracker.

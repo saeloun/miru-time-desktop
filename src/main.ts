@@ -49,9 +49,21 @@ const timerState = {
 const timerContext = {
   billable: false,
   notes: "",
+  projectId: "",
   projectName: "No project selected",
+  taskId: "time",
   taskName: "Development",
 };
+
+interface TimerSlot {
+  context: typeof timerContext;
+  elapsedMs: number;
+  id: string;
+  running: boolean;
+  updatedAt: string;
+}
+
+const timerSlots: TimerSlot[] = [];
 
 const timerSummary = {
   entryCount: 0,
@@ -93,15 +105,18 @@ const miruAccount = {
 const API_TIMEOUT_MS = 8000;
 
 const TIMER_CHANNELS = {
+  deleteSlot: "miru-timer:delete-slot",
   forceIdleForTesting: "miru-timer:force-idle-for-testing",
   getState: "miru-timer:get-state",
   idleAction: "miru-timer:idle-action",
   pause: "miru-timer:pause",
   reset: "miru-timer:reset",
+  resumeSlot: "miru-timer:resume-slot",
   setContext: "miru-timer:set-context",
   setIdleThreshold: "miru-timer:set-idle-threshold",
   setSummary: "miru-timer:set-summary",
   start: "miru-timer:start",
+  startNew: "miru-timer:start-new",
   state: "miru-timer:state",
   toggle: "miru-timer:toggle",
 };
@@ -135,6 +150,7 @@ interface StoredTimerState {
   idleThresholdSeconds?: number;
   running?: boolean;
   savedAt?: number;
+  timers?: Partial<TimerSlot>[];
 }
 
 interface StoredAccountState {
@@ -240,8 +256,15 @@ async function setupORPC() {
 function setupTimerIPC() {
   ipcMain.handle(TIMER_CHANNELS.getState, () => getTimerSnapshot());
   ipcMain.handle(TIMER_CHANNELS.start, () => startTrayTimer());
+  ipcMain.handle(TIMER_CHANNELS.startNew, () => startNewTrayTimer());
   ipcMain.handle(TIMER_CHANNELS.pause, () => pauseTrayTimer());
   ipcMain.handle(TIMER_CHANNELS.reset, () => resetTrayTimer());
+  ipcMain.handle(TIMER_CHANNELS.resumeSlot, (_event, timerId: string) =>
+    resumeTimerSlot(timerId)
+  );
+  ipcMain.handle(TIMER_CHANNELS.deleteSlot, (_event, timerId: string) =>
+    deleteTimerSlot(timerId)
+  );
   ipcMain.handle(TIMER_CHANNELS.toggle, () => toggleTrayTimer());
   ipcMain.handle(TIMER_CHANNELS.setContext, (_event, context) => {
     updateTimerContext(sanitizeTimerContext(context));
@@ -495,6 +518,12 @@ async function loadTimerState() {
     if (stored.idleThresholdSeconds) {
       timerSettings.idleThresholdSeconds = stored.idleThresholdSeconds;
     }
+
+    timerSlots.splice(
+      0,
+      timerSlots.length,
+      ...(stored.timers ?? []).map(normalizeStoredTimerSlot).filter(Boolean)
+    );
   } catch (error: unknown) {
     if (hasNodeErrorCode(error, "ENOENT")) {
       return;
@@ -541,6 +570,7 @@ async function persistTimerState() {
       idleThresholdSeconds: timerSettings.idleThresholdSeconds,
       running: timerState.running,
       savedAt: Date.now(),
+      timers: timerSlots,
     });
   } catch (error) {
     console.error("Failed to persist timer state", error);
@@ -856,10 +886,17 @@ async function syncCurrentTimer(action: "pull" | "push" = "push") {
       const response = await miruRequest("/desktop/current_timer", {
         method: "GET",
       });
-      applyRemoteTimer(response.current_timer ?? response.currentTimer);
+      const remoteTimers = getRemoteTimerCollection(response);
+      applyRemoteTimer(
+        response.current_timer ?? response.currentTimer ?? remoteTimers[0]
+      );
+      applyRemoteTimerSlots(remoteTimers.slice(1));
     } else {
       await miruRequest("/desktop/current_timer", {
-        body: { current_timer: buildRemoteTimerPayload() },
+        body: {
+          current_timer: buildRemoteTimerPayload(),
+          current_timers: buildRemoteTimerCollection(),
+        },
         method: "PUT",
       });
     }
@@ -964,13 +1001,48 @@ function buildRemoteTimerPayload() {
     billable: timerContext.billable,
     elapsed_ms: currentElapsedMs(),
     notes: timerContext.notes,
+    project_id: timerContext.projectId,
     project_name: timerContext.projectName,
     running: timerState.running,
     started_at: timerState.running
       ? new Date(timerState.startedAt).toISOString()
       : null,
+    task_id: timerContext.taskId,
     task_name: timerContext.taskName,
   };
+}
+
+function buildRemoteTimerCollection() {
+  return [
+    {
+      ...buildRemoteTimerPayload(),
+      id: "current",
+    },
+    ...timerSlots.map((slot) => ({
+      billable: slot.context.billable,
+      elapsed_ms: slot.elapsedMs,
+      id: slot.id,
+      notes: slot.context.notes,
+      project_id: slot.context.projectId,
+      project_name: slot.context.projectName,
+      running: false,
+      started_at: null,
+      task_id: slot.context.taskId,
+      task_name: slot.context.taskName,
+      updated_at: slot.updatedAt,
+    })),
+  ];
+}
+
+function getRemoteTimerCollection(response: Record<string, unknown>) {
+  const collection =
+    response.current_timers ??
+    response.currentTimers ??
+    response.timers ??
+    getRecord(response.current_timer).timers ??
+    getRecord(response.currentTimer).timers;
+
+  return Array.isArray(collection) ? collection : [];
 }
 
 function applyRemoteTimer(timer: unknown) {
@@ -995,10 +1067,16 @@ function applyRemoteTimer(timer: unknown) {
     {
       billable: Boolean(remoteTimer.billable),
       notes: getStringField(remoteTimer, "notes"),
+      projectId:
+        getStringField(remoteTimer, "project_id") ||
+        getStringField(remoteTimer, "projectId"),
       projectName:
         getStringField(remoteTimer, "project_name") ||
         getStringField(remoteTimer, "projectName") ||
         timerContext.projectName,
+      taskId:
+        getStringField(remoteTimer, "task_id") ||
+        getStringField(remoteTimer, "taskId"),
       taskName:
         getStringField(remoteTimer, "task_name") ||
         getStringField(remoteTimer, "taskName") ||
@@ -1006,6 +1084,57 @@ function applyRemoteTimer(timer: unknown) {
     },
     false
   );
+}
+
+function applyRemoteTimerSlots(timers: unknown[]) {
+  const nextSlots = timers
+    .filter((timer) => timer && typeof timer === "object")
+    .map((timer) => {
+      const remoteTimer = getRecord(timer);
+      const elapsedMs = Math.max(
+        0,
+        getNumberField(remoteTimer, ["elapsed_ms", "elapsedMs"])
+      );
+
+      if (elapsedMs < 1000) {
+        return null;
+      }
+
+      return {
+        context: {
+          billable: Boolean(remoteTimer.billable),
+          notes: getStringField(remoteTimer, "notes"),
+          projectId:
+            getStringField(remoteTimer, "project_id") ||
+            getStringField(remoteTimer, "projectId"),
+          projectName:
+            getStringField(remoteTimer, "project_name") ||
+            getStringField(remoteTimer, "projectName") ||
+            "No project selected",
+          taskId:
+            getStringField(remoteTimer, "task_id") ||
+            getStringField(remoteTimer, "taskId") ||
+            "time",
+          taskName:
+            getStringField(remoteTimer, "task_name") ||
+            getStringField(remoteTimer, "taskName") ||
+            "Time entry",
+        },
+        elapsedMs,
+        id:
+          getStringField(remoteTimer, "id") ||
+          getStringField(remoteTimer, "timer_id") ||
+          createTimerSlotId(),
+        running: false,
+        updatedAt:
+          getStringField(remoteTimer, "updated_at") ||
+          getStringField(remoteTimer, "updatedAt") ||
+          new Date().toISOString(),
+      };
+    })
+    .filter(Boolean) as TimerSlot[];
+
+  timerSlots.splice(0, timerSlots.length, ...nextSlots);
 }
 
 function getRemoteTimerStartedAt(running: boolean, startedAt: number) {
@@ -1095,11 +1224,47 @@ function sanitizeTimerContext(context: unknown) {
     sanitized.notes = input.notes.slice(0, 2000);
   }
 
+  if (
+    typeof input.projectId === "string" ||
+    typeof input.projectId === "number"
+  ) {
+    sanitized.projectId = String(input.projectId).slice(0, 120);
+  }
+
+  if (typeof input.taskId === "string" || typeof input.taskId === "number") {
+    sanitized.taskId = String(input.taskId).slice(0, 120);
+  }
+
   if (typeof input.billable === "boolean") {
     sanitized.billable = input.billable;
   }
 
   return sanitized;
+}
+
+function normalizeStoredTimerSlot(slot: Partial<TimerSlot>) {
+  if (!slot || typeof slot !== "object") {
+    return null;
+  }
+
+  const elapsedMs = Math.max(0, Number(slot.elapsedMs) || 0);
+  if (elapsedMs < 1000) {
+    return null;
+  }
+
+  return {
+    context: {
+      ...timerContext,
+      ...sanitizeTimerContext(slot.context),
+    },
+    elapsedMs,
+    id: typeof slot.id === "string" && slot.id ? slot.id : createTimerSlotId(),
+    running: false,
+    updatedAt:
+      typeof slot.updatedAt === "string" && slot.updatedAt
+        ? slot.updatedAt
+        : new Date().toISOString(),
+  };
 }
 
 function sanitizeTimerSummary(summary: unknown) {
@@ -1164,6 +1329,14 @@ function updateTimerContext(
     timerContext.notes = context.notes;
   }
 
+  if (typeof context.projectId === "string") {
+    timerContext.projectId = context.projectId;
+  }
+
+  if (typeof context.taskId === "string") {
+    timerContext.taskId = context.taskId || "time";
+  }
+
   if (typeof context.billable === "boolean") {
     timerContext.billable = context.billable;
   }
@@ -1215,6 +1388,18 @@ function startTrayTimer() {
   return getTimerSnapshot();
 }
 
+function startNewTrayTimer() {
+  parkCurrentTimer();
+  timerState.elapsedMs = 0;
+  timerState.running = true;
+  timerState.startedAt = Date.now();
+  idleSession = null;
+  ensureTrayInterval();
+  updateTray();
+
+  return getTimerSnapshot();
+}
+
 function pauseTrayTimer() {
   if (!timerState.running) {
     return getTimerSnapshot();
@@ -1236,6 +1421,57 @@ function resetTrayTimer() {
   updateTray();
 
   return getTimerSnapshot();
+}
+
+function parkCurrentTimer() {
+  const elapsedMs = currentElapsedMs();
+  if (elapsedMs < 1000) {
+    return null;
+  }
+
+  const slot = {
+    context: { ...timerContext },
+    elapsedMs,
+    id: createTimerSlotId(),
+    running: false,
+    updatedAt: new Date().toISOString(),
+  };
+
+  timerSlots.unshift(slot);
+  return slot;
+}
+
+function resumeTimerSlot(timerId: string) {
+  const slotIndex = timerSlots.findIndex((slot) => slot.id === timerId);
+  if (slotIndex === -1) {
+    return getTimerSnapshot();
+  }
+
+  const [slot] = timerSlots.splice(slotIndex, 1);
+  parkCurrentTimer();
+  timerState.elapsedMs = slot.elapsedMs;
+  timerState.running = true;
+  timerState.startedAt = Date.now();
+  idleSession = null;
+  updateTimerContext(slot.context, false);
+  ensureTrayInterval();
+  updateTray();
+
+  return getTimerSnapshot();
+}
+
+function deleteTimerSlot(timerId: string) {
+  const slotIndex = timerSlots.findIndex((slot) => slot.id === timerId);
+  if (slotIndex !== -1) {
+    timerSlots.splice(slotIndex, 1);
+  }
+
+  updateTray();
+  return getTimerSnapshot();
+}
+
+function createTimerSlotId() {
+  return `timer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function subtractIdleTime(idleMs: number) {
@@ -1370,6 +1606,15 @@ function getTimerSnapshot() {
       : null,
     idleThresholdSeconds: timerSettings.idleThresholdSeconds,
     running: timerState.running,
+    timers: timerSlots.map((slot) => ({
+      context: { ...slot.context },
+      elapsedMs: slot.elapsedMs,
+      elapsedSeconds: Math.floor(slot.elapsedMs / 1000),
+      formatted: formatTrayDuration(slot.elapsedMs),
+      id: slot.id,
+      running: false,
+      updatedAt: slot.updatedAt,
+    })),
   };
 }
 
@@ -2109,6 +2354,23 @@ function buildTrayMenu(snapshot: ReturnType<typeof getTimerSnapshot>) {
       enabled: snapshot.elapsedMs > 0,
       label: "Reset Timer",
     },
+    {
+      click: startNewTrayTimer,
+      enabled: snapshot.elapsedMs > 0 || snapshot.running,
+      label: "Start New Timer",
+    },
+    ...(timerSlots.length > 0
+      ? [
+          { type: "separator" as const },
+          {
+            label: "Paused Timers",
+            submenu: timerSlots.map((slot) => ({
+              click: () => resumeTimerSlot(slot.id),
+              label: `${formatTrayNativeDuration(slot.elapsedMs)} - ${slot.context.projectName}`,
+            })),
+          },
+        ]
+      : []),
     ...(idleSession
       ? [
           { type: "separator" as const },

@@ -8,7 +8,9 @@ interface MiruTimerState {
   context: {
     billable: boolean;
     notes: string;
+    projectId: string;
     projectName: string;
+    taskId: string;
     taskName: string;
   };
   elapsedMs: number;
@@ -20,6 +22,15 @@ interface MiruTimerState {
   } | null;
   idleThresholdSeconds: number;
   running: boolean;
+  timers: Array<{
+    context: MiruTimerState["context"];
+    elapsedMs: number;
+    elapsedSeconds: number;
+    formatted: string;
+    id: string;
+    running: boolean;
+    updatedAt: string;
+  }>;
 }
 
 interface MiruSessionState {
@@ -88,10 +99,14 @@ interface Window {
     onStateChange: (callback: (state: MiruTimerState) => void) => () => void;
     pause: () => Promise<MiruTimerState>;
     reset: () => Promise<MiruTimerState>;
+    deleteSlot: (timerId: string) => Promise<MiruTimerState>;
+    resumeSlot: (timerId: string) => Promise<MiruTimerState>;
     setContext: (context: {
       billable: boolean;
       notes: string;
+      projectId: string;
       projectName: string;
+      taskId: string;
       taskName: string;
     }) => Promise<MiruTimerState>;
     setIdleThreshold: (seconds: number) => Promise<MiruTimerState>;
@@ -106,6 +121,7 @@ interface Window {
       workspaceName: string;
     }) => Promise<MiruTimerState>;
     start: () => Promise<MiruTimerState>;
+    startNew: () => Promise<MiruTimerState>;
     toggle: () => Promise<MiruTimerState>;
   };
   nativeDialog: {

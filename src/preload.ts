@@ -2,15 +2,18 @@ import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "./constants";
 
 const TIMER_CHANNELS = {
+  deleteSlot: "miru-timer:delete-slot",
   forceIdleForTesting: "miru-timer:force-idle-for-testing",
   getState: "miru-timer:get-state",
   idleAction: "miru-timer:idle-action",
   pause: "miru-timer:pause",
   reset: "miru-timer:reset",
+  resumeSlot: "miru-timer:resume-slot",
   setContext: "miru-timer:set-context",
   setIdleThreshold: "miru-timer:set-idle-threshold",
   setSummary: "miru-timer:set-summary",
   start: "miru-timer:start",
+  startNew: "miru-timer:start-new",
   state: "miru-timer:state",
   toggle: "miru-timer:toggle",
 };
@@ -55,6 +58,10 @@ contextBridge.exposeInMainWorld("miruTimer", {
     ipcRenderer.invoke(TIMER_CHANNELS.idleAction, action),
   pause: () => ipcRenderer.invoke(TIMER_CHANNELS.pause),
   reset: () => ipcRenderer.invoke(TIMER_CHANNELS.reset),
+  deleteSlot: (timerId: string) =>
+    ipcRenderer.invoke(TIMER_CHANNELS.deleteSlot, timerId),
+  resumeSlot: (timerId: string) =>
+    ipcRenderer.invoke(TIMER_CHANNELS.resumeSlot, timerId),
   setContext: (context: unknown) =>
     ipcRenderer.invoke(TIMER_CHANNELS.setContext, context),
   setIdleThreshold: (seconds: number) =>
@@ -62,6 +69,7 @@ contextBridge.exposeInMainWorld("miruTimer", {
   setSummary: (summary: unknown) =>
     ipcRenderer.invoke(TIMER_CHANNELS.setSummary, summary),
   start: () => ipcRenderer.invoke(TIMER_CHANNELS.start),
+  startNew: () => ipcRenderer.invoke(TIMER_CHANNELS.startNew),
   toggle: () => ipcRenderer.invoke(TIMER_CHANNELS.toggle),
 });
 

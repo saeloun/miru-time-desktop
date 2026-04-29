@@ -85,6 +85,15 @@ interface TimerState {
   projectId: string;
   running: boolean;
   taskId: string;
+  timers: TimerSlotState[];
+}
+
+interface TimerSlotState {
+  context: MiruTimerState["context"];
+  elapsedSeconds: number;
+  formatted: string;
+  id: string;
+  updatedAt: string;
 }
 
 interface EntryDraft {
@@ -108,6 +117,8 @@ interface TimeSummary {
   weekHours: number;
   weekRangeLabel: string;
 }
+
+type EntriesViewMode = "day" | "history" | "week";
 
 type AuthMode = "login" | "signup";
 
@@ -147,6 +158,7 @@ type I18nKey =
   | "entries.new"
   | "entries.save"
   | "entries.title"
+  | "entries.week"
   | "field.date"
   | "field.notes"
   | "field.project"
@@ -180,7 +192,9 @@ type I18nKey =
   | "timer.resume"
   | "timer.running"
   | "timer.start"
+  | "timer.startNew"
   | "timer.stopSave"
+  | "timer.timerStack"
   | "timer.idle"
   | "work.details";
 
@@ -218,6 +232,7 @@ const APP_TRANSLATIONS: Record<string, Partial<Record<I18nKey, string>>> = {
     "entries.new": "New entry",
     "entries.save": "Save",
     "entries.title": "{count} entries · {hours}h tracked",
+    "entries.week": "Week",
     "field.date": "Date",
     "field.notes": "Notes",
     "field.project": "Project",
@@ -252,7 +267,9 @@ const APP_TRANSLATIONS: Record<string, Partial<Record<I18nKey, string>>> = {
     "timer.resume": "Resume",
     "timer.running": "Tracking now",
     "timer.start": "Start",
+    "timer.startNew": "Start new timer",
     "timer.stopSave": "Stop and save",
+    "timer.timerStack": "Paused timers",
     "work.details": "Work details",
   },
   "en-GB": {},
@@ -499,6 +516,7 @@ const initialTimer: TimerState = {
   projectId: "",
   running: false,
   taskId: "time",
+  timers: [],
 };
 
 function newEntryDraft(date = todayIso): EntryDraft {
@@ -530,6 +548,8 @@ function HomePage() {
     };
   });
   const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [entriesViewMode, setEntriesViewMode] =
+    useState<EntriesViewMode>("day");
   const [entryDialog, setEntryDialog] = useState<EntryDialogState | null>(null);
   const [entryDraft, setEntryDraft] = useState<EntryDraft>(() =>
     newEntryDraft(todayIso)
@@ -557,11 +577,18 @@ function HomePage() {
         : null;
       const nextIdlePrompted = state.idle?.prompted ?? null;
       const currentIdlePrompted = current.idle?.prompted ?? null;
+      const nextProjectId = state.context.projectId || current.projectId;
+      const nextTaskId = state.context.taskId || current.taskId;
+      const nextTimers = state.timers ?? [];
 
       if (
         current.elapsedSeconds === state.elapsedSeconds &&
         current.running === state.running &&
         current.idleThresholdSeconds === state.idleThresholdSeconds &&
+        current.notes === state.context.notes &&
+        current.projectId === nextProjectId &&
+        current.taskId === nextTaskId &&
+        current.timers.length === nextTimers.length &&
         currentIdleDuration === nextIdleDuration &&
         currentIdlePrompted === nextIdlePrompted
       ) {
@@ -573,7 +600,11 @@ function HomePage() {
         elapsedSeconds: state.elapsedSeconds,
         idle: state.idle,
         idleThresholdSeconds: state.idleThresholdSeconds,
+        notes: state.context.notes,
+        projectId: nextProjectId,
         running: state.running,
+        taskId: nextTaskId,
+        timers: nextTimers,
       };
     });
   }, []);
@@ -712,12 +743,7 @@ function HomePage() {
     const task = taskById(timer.taskId) ?? tasks[0];
 
     window.miruTimer
-      .setContext({
-        billable: false,
-        notes: timer.notes,
-        projectName: `${clientById(project.clientId, clients)?.name ?? "Miru"} / ${project.name}`,
-        taskName: task.name,
-      })
+      .setContext(buildDesktopTimerContext(project, task, clients, timer.notes))
       .then(syncDesktopTimer)
       .catch((error) => {
         console.error("Failed to sync desktop timer context", error);
@@ -750,6 +776,14 @@ function HomePage() {
       ),
     [entries]
   );
+  const weekRange = useMemo(() => getWeekRange(todayIso), []);
+  const weekEntries = useMemo(
+    () =>
+      sortedEntries.filter(
+        (entry) => entry.date >= weekRange.start && entry.date <= weekRange.end
+      ),
+    [sortedEntries, weekRange.end, weekRange.start]
+  );
   const selectedDayHours = useMemo(
     () => selectedEntries.reduce((total, entry) => total + entry.hours, 0),
     [selectedEntries]
@@ -758,7 +792,6 @@ function HomePage() {
     () => entries.reduce((total, entry) => total + entry.hours, 0),
     [entries]
   );
-  const weekRange = useMemo(() => getWeekRange(todayIso), []);
   const runningTimerHours = timer.elapsedSeconds / 3600;
   const todaySavedHours = useMemo(
     () => sumEntryHoursForRange(entries, todayIso, todayIso),
@@ -847,6 +880,41 @@ function HomePage() {
       .then(syncDesktopTimer)
       .catch((error) => {
         console.error("Failed to toggle desktop timer", error);
+      });
+  }
+
+  function startNewTimer() {
+    window.miruTimer
+      .setContext(
+        buildDesktopTimerContext(
+          selectedProject,
+          selectedTask,
+          clients,
+          timer.notes
+        )
+      )
+      .then(() => window.miruTimer.startNew())
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to start new desktop timer", error);
+      });
+  }
+
+  function resumeTimerSlot(timerId: string) {
+    window.miruTimer
+      .resumeSlot(timerId)
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to resume desktop timer", error);
+      });
+  }
+
+  function deleteTimerSlot(timerId: string) {
+    window.miruTimer
+      .deleteSlot(timerId)
+      .then(syncDesktopTimer)
+      .catch((error) => {
+        console.error("Failed to remove desktop timer", error);
       });
   }
 
@@ -947,7 +1015,15 @@ function HomePage() {
 
     if (startAfterSave) {
       window.miruTimer
-        .start()
+        .setContext(
+          buildDesktopTimerContext(
+            project,
+            taskById(entryDraft.taskId) ?? tasks[0],
+            clients,
+            entryDraft.notes
+          )
+        )
+        .then(() => window.miruTimer.startNew())
         .then(syncDesktopTimer)
         .catch((error) => {
           console.error("Failed to start desktop timer", error);
@@ -972,6 +1048,9 @@ function HomePage() {
   }
 
   function resumeEntry(entry: TimeEntry) {
+    const entryProject = projectById(entry.projectId, projects);
+    const entryTask = taskById(entry.taskId) ?? tasks[0];
+
     setTimer((current) => ({
       ...current,
       billable: false,
@@ -981,7 +1060,10 @@ function HomePage() {
     }));
     setSelectedDate(entry.date);
     window.miruTimer
-      .start()
+      .setContext(
+        buildDesktopTimerContext(entryProject, entryTask, clients, entry.notes)
+      )
+      .then(() => window.miruTimer.startNew())
       .then(syncDesktopTimer)
       .catch((error) => {
         console.error("Failed to resume desktop timer", error);
@@ -1091,6 +1173,19 @@ function HomePage() {
     }
   }
 
+  function showTodayEntries() {
+    setSelectedDate(todayIso);
+    setEntriesViewMode("day");
+  }
+
+  function showWeekEntries() {
+    setEntriesViewMode("week");
+  }
+
+  function showAllEntries() {
+    setEntriesViewMode("history");
+  }
+
   return (
     <div
       className="relative isolate flex h-screen flex-col overflow-hidden rounded-xl border bg-[#f7f8fb]/95 text-foreground shadow-2xl backdrop-blur-xl"
@@ -1139,8 +1234,11 @@ function HomePage() {
       {miruSession?.signedIn ? (
         <>
           <TimerHeroPanel
+            onDeleteTimerSlot={deleteTimerSlot}
             onResetTimer={resetTimer}
+            onResumeTimerSlot={resumeTimerSlot}
             onSaveTimerEntry={saveTimerEntry}
+            onStartNewTimer={startNewTimer}
             onToggleTimer={toggleTimer}
             selectedClient={selectedClient}
             selectedProject={selectedProject}
@@ -1153,7 +1251,14 @@ function HomePage() {
           />
 
           <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
-            <TimeSummaryStrip summary={timeSummary} t={t} />
+            <TimeSummaryStrip
+              onShowAll={showAllEntries}
+              onShowToday={showTodayEntries}
+              onShowWeek={showWeekEntries}
+              summary={timeSummary}
+              t={t}
+              viewMode={entriesViewMode}
+            />
 
             <WorkDetailsPanel
               clients={clients}
@@ -1193,11 +1298,16 @@ function HomePage() {
               onEdit={openEditEntry}
               onNewEntry={openNewEntry}
               onResume={resumeEntry}
+              onViewModeChange={setEntriesViewMode}
               projects={projects}
               selectedDate={selectedDate}
               selectedDayHours={selectedDayHours}
               t={t}
               totalTrackedHours={totalTrackedHours}
+              viewMode={entriesViewMode}
+              weekEntries={weekEntries}
+              weekHours={weekSavedHours}
+              weekRangeLabel={timeSummary.weekRangeLabel}
             />
           </main>
 
@@ -1258,8 +1368,11 @@ function HomePage() {
 }
 
 function TimerHeroPanel({
+  onDeleteTimerSlot,
   onResetTimer,
+  onResumeTimerSlot,
   onSaveTimerEntry,
+  onStartNewTimer,
   onToggleTimer,
   selectedClient,
   selectedProject,
@@ -1270,8 +1383,11 @@ function TimerHeroPanel({
   timerStatusLabel,
   t,
 }: {
+  onDeleteTimerSlot: (timerId: string) => void;
   onResetTimer: () => void;
+  onResumeTimerSlot: (timerId: string) => void;
   onSaveTimerEntry: () => void;
+  onStartNewTimer: () => void;
   onToggleTimer: () => void;
   selectedClient: Client | null;
   selectedProject: Project | undefined;
@@ -1284,6 +1400,7 @@ function TimerHeroPanel({
 }) {
   const canSave = timer.elapsedSeconds >= 60 && Boolean(selectedProject);
   const isRunning = timer.running;
+  const canStartNew = timer.elapsedSeconds > 0 || timer.running;
 
   return (
     <section
@@ -1372,8 +1489,91 @@ function TimerHeroPanel({
           >
             <RotateCcw className="size-4" />
           </button>
+          <button
+            aria-label={t("timer.startNew")}
+            className={cn(
+              "interactive-lift icon-motion grid size-10 place-items-center rounded-lg border transition",
+              isRunning
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                : "border-border bg-white text-foreground hover:bg-muted",
+              !canStartNew && "opacity-45"
+            )}
+            disabled={!canStartNew}
+            onClick={onStartNewTimer}
+            title={t("timer.startNew")}
+            type="button"
+          >
+            <Plus className="size-4" />
+          </button>
         </div>
       </div>
+
+      {timer.timers.length > 0 && (
+        <section
+          aria-label={t("timer.timerStack")}
+          className={cn(
+            "mt-3 grid gap-1.5 rounded-lg border p-2",
+            isRunning
+              ? "border-white/15 bg-white/10"
+              : "border-border bg-white/70"
+          )}
+        >
+          {timer.timers.slice(0, 3).map((slot) => (
+            <div
+              className="grid grid-cols-[1fr_auto_auto] items-center gap-2"
+              key={slot.id}
+            >
+              <div className="min-w-0">
+                <p
+                  className={cn(
+                    "truncate font-semibold text-xs",
+                    isRunning ? "text-white" : "text-foreground"
+                  )}
+                >
+                  {slot.context.projectName}
+                </p>
+                <p
+                  className={cn(
+                    "truncate font-mono text-[11px] tabular-nums",
+                    isRunning ? "text-white/65" : "text-foreground/55"
+                  )}
+                >
+                  {formatDuration(slot.elapsedSeconds)} ·{" "}
+                  {slot.context.notes || slot.context.taskName}
+                </p>
+              </div>
+              <button
+                aria-label={`${t("timer.resume")} ${slot.context.projectName}`}
+                className={cn(
+                  "interactive-lift icon-motion grid size-8 place-items-center rounded-md border transition",
+                  isRunning
+                    ? "border-white/15 bg-white/10 text-white"
+                    : "border-border bg-background text-foreground"
+                )}
+                onClick={() => onResumeTimerSlot(slot.id)}
+                title={t("timer.resume")}
+                type="button"
+              >
+                <Play className="size-3.5" />
+              </button>
+              <button
+                aria-label={`Remove ${slot.context.projectName}`}
+                className={cn(
+                  "interactive-lift icon-motion grid size-8 place-items-center rounded-md border transition",
+                  isRunning
+                    ? "border-white/15 bg-white/10 text-white"
+                    : "border-border bg-background text-foreground"
+                )}
+                onClick={() => onDeleteTimerSlot(slot.id)}
+                title="Remove"
+                type="button"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
     </section>
   );
 }
@@ -1458,12 +1658,17 @@ function EntriesPanel({
   onEdit,
   onNewEntry,
   onResume,
+  onViewModeChange,
   locale,
   projects,
   selectedDate,
   selectedDayHours,
   t,
   totalTrackedHours,
+  viewMode,
+  weekEntries,
+  weekHours,
+  weekRangeLabel,
 }: {
   allEntries: TimeEntry[];
   clients: Client[];
@@ -1473,17 +1678,30 @@ function EntriesPanel({
   onEdit: (entry: TimeEntry) => void;
   onNewEntry: (date: string) => void;
   onResume: (entry: TimeEntry) => void;
+  onViewModeChange: (mode: EntriesViewMode) => void;
   locale: string;
   projects: Project[];
   selectedDate: string;
   selectedDayHours: number;
   t: Translator;
   totalTrackedHours: number;
+  viewMode: EntriesViewMode;
+  weekEntries: TimeEntry[];
+  weekHours: number;
+  weekRangeLabel: string;
 }) {
-  const [viewMode, setViewMode] = useState<"day" | "history">("day");
-  const visibleEntries = viewMode === "day" ? entries : allEntries;
-  const visibleHours =
-    viewMode === "day" ? selectedDayHours : totalTrackedHours;
+  const visibleEntries = getVisibleEntriesForMode(
+    viewMode,
+    entries,
+    weekEntries,
+    allEntries
+  );
+  const visibleHours = getVisibleHoursForMode(
+    viewMode,
+    selectedDayHours,
+    weekHours,
+    totalTrackedHours
+  );
   const visibleTitle =
     viewMode === "day"
       ? t("entries.title", {
@@ -1501,9 +1719,13 @@ function EntriesPanel({
         <div className="grid grid-cols-[1fr_auto] items-center gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-sm">
-              {viewMode === "day"
-                ? dayTitle(selectedDate, locale, t)
-                : t("entries.live")}
+              {getEntriesPanelTitle(
+                viewMode,
+                selectedDate,
+                weekRangeLabel,
+                locale,
+                t
+              )}
             </p>
             <p className="font-medium text-foreground/60 text-xs">
               {visibleTitle}
@@ -1519,8 +1741,8 @@ function EntriesPanel({
           </Button>
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-          <div className="grid grid-cols-2 gap-1 rounded-md border bg-muted/40 p-1">
-            {(["day", "history"] as const).map((mode) => (
+          <div className="grid grid-cols-3 gap-1 rounded-md border bg-muted/40 p-1">
+            {(["day", "week", "history"] as const).map((mode) => (
               <button
                 className={cn(
                   "h-8 rounded-sm px-3 font-medium text-xs transition",
@@ -1529,10 +1751,10 @@ function EntriesPanel({
                     : "text-foreground/60 hover:text-foreground"
                 )}
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => onViewModeChange(mode)}
                 type="button"
               >
-                {mode === "day" ? t("entries.day") : t("entries.history")}
+                {getEntriesViewModeLabel(mode, t)}
               </button>
             ))}
           </div>
@@ -1540,7 +1762,7 @@ function EntriesPanel({
             className="h-9 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30"
             onChange={(event) => {
               onDateChange(event.target.value);
-              setViewMode("day");
+              onViewModeChange("day");
             }}
             type="date"
             value={selectedDate}
@@ -1560,7 +1782,7 @@ function EntriesPanel({
               onEdit={onEdit}
               onResume={onResume}
               projects={projects}
-              showDate={viewMode === "history"}
+              showDate={viewMode !== "day"}
             />
           ))}
         </div>
@@ -1588,6 +1810,70 @@ function EntriesPanel({
       )}
     </section>
   );
+}
+
+function getEntriesPanelTitle(
+  viewMode: EntriesViewMode,
+  selectedDate: string,
+  weekRangeLabel: string,
+  locale: string,
+  t: Translator
+) {
+  if (viewMode === "day") {
+    return dayTitle(selectedDate, locale, t);
+  }
+
+  if (viewMode === "week") {
+    return weekRangeLabel;
+  }
+
+  return t("entries.live");
+}
+
+function getVisibleEntriesForMode(
+  viewMode: EntriesViewMode,
+  dayEntries: TimeEntry[],
+  weekEntries: TimeEntry[],
+  allEntries: TimeEntry[]
+) {
+  if (viewMode === "day") {
+    return dayEntries;
+  }
+
+  if (viewMode === "week") {
+    return weekEntries;
+  }
+
+  return allEntries;
+}
+
+function getVisibleHoursForMode(
+  viewMode: EntriesViewMode,
+  dayHours: number,
+  weekHours: number,
+  allHours: number
+) {
+  if (viewMode === "day") {
+    return dayHours;
+  }
+
+  if (viewMode === "week") {
+    return weekHours;
+  }
+
+  return allHours;
+}
+
+function getEntriesViewModeLabel(mode: EntriesViewMode, t: Translator) {
+  if (mode === "day") {
+    return t("entries.day");
+  }
+
+  if (mode === "week") {
+    return t("entries.week");
+  }
+
+  return t("entries.history");
 }
 
 function AccountMenuOverlay({
@@ -1953,26 +2239,40 @@ function IdlePrompt({
 }
 
 function TimeSummaryStrip({
+  onShowAll,
+  onShowToday,
+  onShowWeek,
   summary,
   t,
+  viewMode,
 }: {
+  onShowAll: () => void;
+  onShowToday: () => void;
+  onShowWeek: () => void;
   summary: TimeSummary;
   t: Translator;
+  viewMode: EntriesViewMode;
 }) {
   const items = [
     {
+      active: viewMode === "day",
       icon: Clock3,
       label: t("summary.today"),
+      onClick: onShowToday,
       value: formatEntryDuration(summary.todayHours),
     },
     {
+      active: viewMode === "week",
       icon: CalendarDays,
       label: t("summary.thisWeek"),
+      onClick: onShowWeek,
       value: formatEntryDuration(summary.weekHours),
     },
     {
+      active: viewMode === "history",
       icon: TimerReset,
       label: t("summary.entries"),
+      onClick: onShowAll,
       value: String(summary.entryCount),
     },
   ];
@@ -1983,12 +2283,25 @@ function TimeSummaryStrip({
         const Icon = item.icon;
 
         return (
-          <div
-            className="motion-fade-up interactive-lift min-w-0 rounded-lg border bg-background px-3 py-2 shadow-sm"
+          <button
+            aria-pressed={item.active}
+            className={cn(
+              "motion-fade-up interactive-lift min-w-0 rounded-lg border px-3 py-2 text-left shadow-sm transition",
+              item.active
+                ? "border-primary/30 bg-primary/10"
+                : "bg-background hover:border-primary/20 hover:bg-primary/5"
+            )}
             key={item.label}
+            onClick={item.onClick}
+            type="button"
           >
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <span
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-md text-primary",
+                  item.active ? "bg-background" : "bg-primary/10"
+                )}
+              >
                 <Icon className="size-3.5" />
               </span>
               <p className="truncate text-[11px]">{item.label}</p>
@@ -1996,7 +2309,7 @@ function TimeSummaryStrip({
             <p className="mt-1 truncate font-mono font-semibold text-sm tabular-nums">
               {item.value}
             </p>
-          </div>
+          </button>
         );
       })}
     </section>
@@ -2628,6 +2941,24 @@ function projectById(id: string, collection: Project[]) {
 
 function taskById(id: string) {
   return tasks.find((task) => task.id === id);
+}
+
+function buildDesktopTimerContext(
+  project: Project | undefined,
+  task: Task,
+  clients: Client[],
+  notes: string
+) {
+  return {
+    billable: false,
+    notes,
+    projectId: project?.id ?? "",
+    projectName: project
+      ? `${clientById(project.clientId, clients)?.name ?? "Miru"} / ${project.name}`
+      : "No project selected",
+    taskId: task.id,
+    taskName: task.name,
+  };
 }
 
 function getTimerPanelClass(timer: TimerState) {

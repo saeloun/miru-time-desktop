@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 - 2026-04-29
+
+- Expanded Electron E2E coverage for Miru API-backed projects, entries, auth, signup, workspace switching, current timer sync, timer save, and manual entry create/edit/resume flows.
+- Added detailed entry drill-down from Today, This week, and Entries summary cards.
+- Added a paused timer stack so starting a new timer keeps the existing timer resumable instead of discarding it.
+- Extended Miru current timer sync to push and pull multiple timer states through the desktop timer API payload.
+- Reworked the Playwright Electron harness to launch with isolated per-test user data directories and deterministic teardown.
+- Stabilized account menu action tests by scoping interactions to the visible native account dialog.
+- Verified the fixed harness leaves no rogue Miru/Electron processes after full test runs.
+
 ## 0.1.2 - 2026-04-29
 
 - Moved the canonical repository and release links to `saeloun/miru-time-desktop`.

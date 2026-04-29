@@ -9,15 +9,19 @@ The integration suite uses Playwright to launch the packaged Electron runtime in
 - Native tray title and menu expose timer state plus Miru time summary.
 - Manual time entry can be added, updated, and deleted from the compact entry dialog.
 - Existing entry can be resumed into the current desktop timer.
+- Starting a new timer parks the existing timer in a resumable stack.
+- Miru current timer sync pushes and pulls multiple timer states.
 - Idle recovery supports remove-and-continue, remove-and-start-new, and ignore-and-continue.
 - Timer context persists across Electron relaunches.
+- Summary cards drill into detailed Today, Week, and History time entries.
 - Signed-in account menu opens, closes from Escape/outside click, resolves Miru avatar URLs, and logs out.
 - Signed-in locale from the Miru user payload drives core app labels.
 
 ## Running
 
 ```bash
-npm run test:e2e
+rtk mise exec -- bun run package
+rtk mise exec -- bun run test:e2e
 ```
 
 The test process sets:
@@ -31,4 +35,4 @@ The desktop timer, account menu, idle recovery, and entry editor are renderer-ow
 
 ## API Sync Scope
 
-The desktop app exposes Miru API IPC methods and syncs against Miru web `GET/PUT /api/v1/desktop/current_timer`. If Miru web is unreachable, current timer sync reports local/offline status and the app continues to track locally.
+The desktop app exposes Miru API IPC methods and syncs against Miru web `GET/PUT /api/v1/desktop/current_timer`. If Miru web is unreachable, current timer sync reports local/offline status and the app continues to track locally. Multiple timer specs verify the current timer plus paused timer stack in both push and pull directions.

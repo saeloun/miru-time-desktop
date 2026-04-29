@@ -21,19 +21,21 @@ Miru Time Tracking is MIT-licensed software.
 
 ## Downloads
 
-Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.2>
+Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.3>
 
-- [macOS arm64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.2/Miru.Time.Tracking-darwin-arm64-0.1.2.zip)
-- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.2/Miru.Time.Tracking-linux-x64-0.1.2.zip)
-- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.2/Miru.Time.Tracking-win32-x64-0.1.2.zip)
+- [macOS arm64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.3/Miru.Time.Tracking-darwin-arm64-0.1.3.zip)
+- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.3/Miru.Time.Tracking-linux-x64-0.1.3.zip)
+- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.3/Miru.Time.Tracking-win32-x64-0.1.3.zip)
 
 ## Highlights
 
 - **Native macOS menu bar timer** with a stable-width time label and stateful tray icon colors for ready, running, paused, and idle.
 - **Compact time tracker window** positioned below the menu bar, with high-contrast timer controls and a Miru-styled command surface.
-- **Local-first tracking** through renderer local storage plus persisted Electron `userData` timer state, so the timer survives app relaunches.
+- **Local-first tracking** through renderer local storage plus persisted Electron `userData` timer state, so timers survive app relaunches.
+- **Resumable timer stack** so starting a new timer keeps the previous timer available to resume or remove.
+- **Timesheet drill-down** from Today, This week, and Entries summary cards into detailed time entries.
 - **Miru account bridge** for login, signup handoff, logout, workspace switching, current timer pull/push, and saving, editing, or deleting time entries.
-- **Current timer sync** with Miru web through `GET/PUT /api/v1/desktop/current_timer`.
+- **Current timer sync** with Miru web through `GET/PUT /api/v1/desktop/current_timer`, including multiple desktop timer states.
 - **Idle recovery** with a custom in-app modal: trim and continue, trim and restart, or keep idle time.
 - **Employee-focused UI** with no billing, rates, invoice, admin, or dashboard surfaces.
 - **Profile-aware settings** showing the Miru user avatar when available, workspace, sync status, idle threshold, and locale.
@@ -52,8 +54,8 @@ The app intentionally behaves like a small desktop utility, not a full web dashb
 ## Local Development
 
 ```bash
-npm install
-npm run start
+rtk mise exec -- bun install
+rtk mise exec -- bun run start
 ```
 
 The app opens an Electron window and creates a macOS menu bar item. During normal development it stores app data in Electron `userData`.
@@ -65,9 +67,9 @@ Production builds connect to Miru web at `https://app.miru.so` by default and do
 Useful development overrides:
 
 ```bash
-MIRU_API_BASE_URL=http://127.0.0.1:3000 npm run start
-MIRU_SHOW_BASE_URL_FIELD=true npm run start
-MIRU_ALLOW_BASE_URL_OVERRIDE=true npm run start
+MIRU_API_BASE_URL=http://127.0.0.1:3000 rtk mise exec -- bun run start
+MIRU_SHOW_BASE_URL_FIELD=true rtk mise exec -- bun run start
+MIRU_ALLOW_BASE_URL_OVERRIDE=true rtk mise exec -- bun run start
 ```
 
 `MIRU_API_BASE_URL` changes the default API host. `MIRU_SHOW_BASE_URL_FIELD` exposes the sign-in URL field. `MIRU_ALLOW_BASE_URL_OVERRIDE` lets the main process honor stored or submitted custom hosts.
@@ -168,11 +170,13 @@ Covered flows include:
 - Shared desktop timer behind the renderer.
 - Native tray title and icon state.
 - Idle recovery actions.
+- Start-new-timer and paused timer resume flows.
 - Timer context persistence across relaunch.
 - Account menu close/logout behavior.
 - Miru user locale rendering.
 - RTL locale layout.
-- Live timesheet history and date switching.
+- Live timesheet history, date switching, and summary-card drill-down.
+- Miru current timer push/pull with multiple timer states.
 
 ## Release Prep
 
