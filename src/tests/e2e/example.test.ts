@@ -86,6 +86,32 @@ test("runs the shared desktop timer behind onboarding", async () => {
   expect(state.elapsedMs).toBeGreaterThanOrEqual(1000);
 });
 
+test("keeps the native tray timer title visible", async () => {
+  const page: Page = await electronApp.firstWindow();
+  const trayTitle = () =>
+    electronApp.evaluate(() => {
+      const diagnostics = (
+        globalThis as typeof globalThis & {
+          __miruE2E?: { getTrayTitle: () => string };
+        }
+      ).__miruE2E;
+
+      return diagnostics?.getTrayTitle() ?? "";
+    });
+
+  await page.evaluate(() => window.miruTimer.reset());
+  await expect.poll(trayTitle).toContain("Start");
+  await expect.poll(trayTitle).toContain("--:--");
+
+  await page.evaluate(() => window.miruTimer.start());
+  await expect.poll(trayTitle).toContain("Pause");
+
+  await page.evaluate(() => window.miruTimer.pause());
+  await expect.poll(trayTitle).toContain("Resume");
+
+  await page.evaluate(() => window.miruTimer.reset());
+});
+
 test("applies idle recovery branches through the desktop timer", async () => {
   const page: Page = await electronApp.firstWindow();
 
@@ -106,7 +132,9 @@ test("applies idle recovery branches through the desktop timer", async () => {
   expect(continued.running).toBe(true);
   expect(continued.idle).toBeNull();
 
-  await page.evaluate(() => window.miruTimer.forceIdleForTesting?.(5 * 60 * 1000));
+  await page.evaluate(() =>
+    window.miruTimer.forceIdleForTesting?.(5 * 60 * 1000)
+  );
   const restarted = await page.evaluate(() =>
     window.miruTimer.applyIdleAction("remove-start-new")
   );
