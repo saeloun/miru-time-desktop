@@ -13,12 +13,55 @@ rtk mise exec -- bun run check
 rtk mise exec -- bun run test
 rtk mise exec -- bun run package
 rtk mise exec -- bun run test:e2e
-rtk mise exec -- bun run make:mac
-rtk mise exec -- bun run make:mac:apple
-rtk mise exec -- bun run make:mac:intel
+rtk mise exec -- bun run make:mac:release
 rtk mise exec -- bun run make:linux
 rtk mise exec -- bun run make:windows
 rtk mise exec -- bun audit
+```
+
+## macOS Signing And Notarization
+
+Public macOS release ZIPs must be built with `MIRU_MAC_RELEASE=true` so Electron Forge signs and notarizes the app before the ZIP is made. Do not use `xattr -cr` for release validation; it only removes local quarantine metadata.
+
+Install a `Developer ID Application` certificate in the keychain that runs the build. Then configure one notarization method:
+
+```bash
+# Preferred for local release machines after running xcrun notarytool store-credentials.
+export APPLE_NOTARIZE_KEYCHAIN_PROFILE=miru-time-desktop
+
+# Or App Store Connect API key credentials.
+export APPLE_API_KEY=/path/to/AuthKey_XXXXXXXXXX.p8
+export APPLE_API_KEY_ID=XXXXXXXXXX
+export APPLE_API_ISSUER=00000000-0000-0000-0000-000000000000
+
+# Or Apple ID credentials with an app-specific password.
+export APPLE_ID=release@example.com
+export APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+export APPLE_TEAM_ID=XXXXXXXXXX
+```
+
+If multiple `Developer ID Application` certificates are available, pin the one to use:
+
+```bash
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Saeloun Inc (XXXXXXXXXX)"
+```
+
+Build signed and notarized macOS release ZIPs:
+
+```bash
+rtk mise exec -- bun run make:mac:release
+```
+
+Verify each packaged app before publishing:
+
+```bash
+codesign --verify --deep --strict --verbose=2 "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
+spctl --assess --type execute --verbose=4 "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
+xcrun stapler validate "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
+
+codesign --verify --deep --strict --verbose=2 "out/Miru Time Tracking-darwin-x64/Miru Time Tracking.app"
+spctl --assess --type execute --verbose=4 "out/Miru Time Tracking-darwin-x64/Miru Time Tracking.app"
+xcrun stapler validate "out/Miru Time Tracking-darwin-x64/Miru Time Tracking.app"
 ```
 
 ## Manual Smoke Test
@@ -50,17 +93,19 @@ Keep release copy in `CHANGELOG.md` and `docs/releases/<version>.md`. Use the ve
 rtk mise exec -- bun run publish
 ```
 
-Use `bun run make:mac`, `bun run make:linux`, and `bun run make:windows` first when you only want local release artifacts. `make:mac` builds both Apple Silicon and Intel ZIPs. The portable ZIPs are generated under `out/make/zip/`.
+The `publish` script also enables `MIRU_MAC_RELEASE=true`, so it requires the same signing and notarization setup as `make:mac:release`.
+
+Use `bun run make:mac:release`, `bun run make:linux`, and `bun run make:windows` first when you only want local release artifacts. `make:mac:release` builds signed and notarized Apple Silicon and Intel ZIPs. The portable ZIPs are generated under `out/make/zip/`.
 
 Manual release fallback:
 
 ```bash
-gh release create v0.1.6 \
-  out/make/zip/darwin/arm64/*0.1.6.zip \
-  out/make/zip/darwin/x64/*0.1.6.zip \
-  out/make/zip/linux/x64/*0.1.6.zip \
-  out/make/zip/win32/x64/*0.1.6.zip \
+gh release create v0.1.7 \
+  out/make/zip/darwin/arm64/*0.1.7.zip \
+  out/make/zip/darwin/x64/*0.1.7.zip \
+  out/make/zip/linux/x64/*0.1.7.zip \
+  out/make/zip/win32/x64/*0.1.7.zip \
   --repo saeloun/miru-time-desktop \
-  --title "Miru Time Tracking 0.1.6" \
-  --notes-file docs/releases/0.1.6.md
+  --title "Miru Time Tracking 0.1.7" \
+  --notes-file docs/releases/0.1.7.md
 ```

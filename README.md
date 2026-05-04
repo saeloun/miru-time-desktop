@@ -24,12 +24,12 @@ These screenshots are generated from the packaged Electron app flow used by the 
 
 ## Downloads
 
-Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.6>
+Latest release: <https://github.com/saeloun/miru-time-desktop/releases/tag/v0.1.7>
 
-- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-darwin-arm64-0.1.6.zip)
-- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-darwin-x64-0.1.6.zip)
-- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-linux-x64-0.1.6.zip)
-- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.6/Miru.Time.Tracking-win32-x64-0.1.6.zip)
+- [macOS Apple Silicon ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.7/Miru.Time.Tracking-darwin-arm64-0.1.7.zip)
+- [macOS Intel ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.7/Miru.Time.Tracking-darwin-x64-0.1.7.zip)
+- [Linux x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.7/Miru.Time.Tracking-linux-x64-0.1.7.zip)
+- [Windows x64 ZIP](https://github.com/saeloun/miru-time-desktop/releases/download/v0.1.7/Miru.Time.Tracking-win32-x64-0.1.7.zip)
 
 ## Highlights
 
@@ -94,12 +94,14 @@ rtk mise exec -- bun run package
 Portable ZIP builds for release:
 
 ```bash
-rtk mise exec -- bun run make:mac
-rtk mise exec -- bun run make:mac:apple
-rtk mise exec -- bun run make:mac:intel
+rtk mise exec -- bun run make:mac:release
+rtk mise exec -- bun run make:mac:release:apple
+rtk mise exec -- bun run make:mac:release:intel
 rtk mise exec -- bun run make:linux
 rtk mise exec -- bun run make:windows
 ```
+
+Use `make:mac:release` for public macOS ZIPs; it enables the release-only Forge signing and notarization path. See [Release Checklist](docs/release.md) for the required Apple certificate and notarization environment variables.
 
 ## Verification
 
@@ -190,7 +192,7 @@ Covered flows include:
 1. Run `rtk mise exec -- bun run check`.
 2. Run `rtk mise exec -- bun run test`.
 3. Run `rtk mise exec -- bun run test:e2e`.
-4. Run `rtk mise exec -- bun run make`.
+4. Run `rtk mise exec -- bun run make:mac:release`.
 5. Open the packaged app and confirm the Miru icon, tray timer, account popover, and idle modal render correctly.
 6. Publish the generated ZIP manually or run `rtk mise exec -- bun run publish` when ready for a draft GitHub release.
 

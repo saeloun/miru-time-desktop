@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 - 2026-05-04
+
+- Added release-only macOS Developer ID signing and notarization for public ZIP builds.
+- Changed the macOS bundle identifier to `com.saeloun.miru-time-tracking` before the signed release.
+- Added fail-closed release scripts so macOS publishing cannot silently ship unsigned artifacts.
+- Documented Apple certificate, notarization, Gatekeeper, and release verification steps.
+
 ## 0.1.6 - 2026-04-30
 
 - Fixed production desktop login so a successful account login is not rejected when the follow-up workspace refresh is temporarily unavailable.

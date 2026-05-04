@@ -1,19 +1,19 @@
 # Build and Compile Guide
 
-Miru Time Tracking is an Electron Forge app. CI builds with Node 24 and npm.
+Miru Time Tracking is an Electron Forge app. CI builds with Node 24 and Bun through mise.
 
 ## Install
 
 ```bash
-npm ci
+rtk mise exec -- bun install
 ```
 
-Use `npm install` only when intentionally updating dependencies and `package-lock.json`.
+Keep `bun.lock` as the package lockfile.
 
 ## Run Locally
 
 ```bash
-npm run start
+rtk mise exec -- bun run start
 ```
 
 The development build opens an Electron window and a macOS menu bar item.
@@ -25,9 +25,9 @@ Production builds default to `https://app.miru.so`. The sign-in UI does not show
 Development overrides:
 
 ```bash
-MIRU_API_BASE_URL=http://127.0.0.1:3000 npm run start
-MIRU_SHOW_BASE_URL_FIELD=true npm run start
-MIRU_ALLOW_BASE_URL_OVERRIDE=true npm run start
+MIRU_API_BASE_URL=http://127.0.0.1:3000 rtk mise exec -- bun run start
+MIRU_SHOW_BASE_URL_FIELD=true rtk mise exec -- bun run start
+MIRU_ALLOW_BASE_URL_OVERRIDE=true rtk mise exec -- bun run start
 ```
 
 `MIRU_API_BASE_URL` changes the default host. `MIRU_SHOW_BASE_URL_FIELD` exposes the host field in the renderer. `MIRU_ALLOW_BASE_URL_OVERRIDE` lets the main process use a custom stored or submitted host.
@@ -35,12 +35,12 @@ MIRU_ALLOW_BASE_URL_OVERRIDE=true npm run start
 ## Compile
 
 ```bash
-npm run check
-npm run test
-npm run package
+rtk mise exec -- bun run check
+rtk mise exec -- bun run test
+rtk mise exec -- bun run package
 ```
 
-`npm run package` creates the unpacked app:
+`bun run package` creates the unpacked app:
 
 ```text
 out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app
@@ -49,7 +49,7 @@ out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app
 ## Release Artifacts
 
 ```bash
-npm run make
+rtk mise exec -- bun run make
 ```
 
 The macOS ZIP is created under:
@@ -61,9 +61,9 @@ out/make/zip/darwin/arm64/
 Portable cross-platform ZIP builds:
 
 ```bash
-npm run make:mac
-npm run make:linux
-npm run make:windows
+rtk mise exec -- bun run make:mac:release
+rtk mise exec -- bun run make:linux
+rtk mise exec -- bun run make:windows
 ```
 
 Those commands generate:
@@ -74,11 +74,13 @@ out/make/zip/linux/x64/
 out/make/zip/win32/x64/
 ```
 
+Use `make:mac:release` for public macOS ZIPs. It requires a local `Developer ID Application` certificate and Apple notarization credentials, then signs and notarizes the app before ZIP packaging.
+
 ## E2E Verification
 
 ```bash
-npm run make
-npm run test:e2e
+rtk mise exec -- bun run package
+rtk mise exec -- bun run test:e2e
 ```
 
 The Playwright Electron suite uses a temporary `userData` directory and leaves the real desktop session untouched.
