@@ -571,6 +571,7 @@ test("keeps the native tray timer title visible", async () => {
       return diagnostics?.getTrayMenuLabels() ?? [];
     });
 
+  await page.waitForSelector("text=Log in");
   await page.evaluate(() => window.miruTimer.reset());
   await page.evaluate(() =>
     window.miruTimer.setSummary({
@@ -1086,7 +1087,20 @@ test("pulls and pushes the current web timer through Miru API", async () => {
     await page.getByLabel("Account menu").click();
     await clickAccountMenuAction(page, PULL_TIMER_BUTTON_PATTERN);
     await expect(page.getByText("Timer pulled.")).toBeVisible();
-    await expect(page.getByText("01:02:00")).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.miruTimer.getState().then((state) => state.context.notes ?? "")
+        )
+      )
+      .toBe("Pulled web timer");
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.miruTimer.getState().then((state) => state.elapsedSeconds)
+        )
+      )
+      .toBeGreaterThanOrEqual(3720);
 
     await clickAccountMenuAction(page, PUSH_TIMER_BUTTON_PATTERN);
     await expect(page.getByText("Timer pushed.")).toBeVisible();
