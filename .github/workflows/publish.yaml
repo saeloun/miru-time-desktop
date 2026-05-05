@@ -5,23 +5,21 @@ on:
 
 jobs:
   publish-release:
-    runs-on: windows-latest
+    runs-on: macos-latest
     permissions:
       contents: write
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v6
 
-      - name: Install Node and NPM
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
+      - uses: jdx/mise-action@v3
 
       - name: Install and build
-        run: npm ci
+        run: mise exec -- bun install --frozen-lockfile
 
       - name: Publish Release
         env:
+          APPLE_NOTARIZE_KEYCHAIN_PROFILE: ${{ secrets.APPLE_NOTARIZE_KEYCHAIN_PROFILE }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish
+        run: mise exec -- bun run publish

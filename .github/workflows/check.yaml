@@ -8,10 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
+      - uses: jdx/mise-action@v3
       - name: Install dependencies
-        run: npm ci
+        run: mise exec -- bun install --frozen-lockfile
       - name: Run check
-        run: npm run check
+        run: mise exec -- bun run check

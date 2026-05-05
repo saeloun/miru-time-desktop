@@ -29,6 +29,13 @@ const SELECTED_BUTTON_CLASS_PATTERN = /shadow-sm/;
 const TIME_TRACKING_RANGE_QUERY_PATTERN = /from=.*&to=/;
 const TIMESHEET_ENTRY_PATH_PATTERN = /^\/timesheet_entry\/([^/]+)$/;
 
+function packagedAppDirectory() {
+  const platform = process.env.MIRU_E2E_PLATFORM ?? process.platform;
+  const arch = process.env.MIRU_E2E_ARCH ?? process.arch;
+
+  return path.join(process.cwd(), `out/Miru Time Tracking-${platform}-${arch}`);
+}
+
 interface RecordedApiRequest {
   body: unknown;
   method: string;
@@ -53,9 +60,7 @@ async function launchApp() {
     userDataDir = mkdtempSync(path.join(tmpdir(), "miru-time-desktop-e2e-"));
   }
 
-  const appInfo = parseElectronApp(
-    path.join(process.cwd(), "out/Miru Time Tracking-darwin-arm64")
-  );
+  const appInfo = parseElectronApp(packagedAppDirectory());
   process.env.CI = "e2e";
   process.env.MIRU_E2E = "true";
   process.env.MIRU_USER_DATA_DIR = userDataDir;
