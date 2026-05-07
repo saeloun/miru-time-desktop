@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.8 - 2026-05-07
+
+- Polished the desktop timer surface with a lighter Miru active state, clearer typography, and tighter spacing so the compact window shows more timesheet context.
+- Reworked idle recovery into a clearer in-app decision panel with labeled actions, visible dark text on the idle timer state, and subtle motion.
+- Added a default Miru-style avatar fallback so missing profile photos no longer show broken image icons.
+- Refreshed README screenshots from the packaged Electron flow.
+- Stabilized CI and packaged Electron assertions around avatar fallbacks and Bun-through-mise builds.
+
 ## 0.1.7 - 2026-05-04
 
 - Added release-only macOS Developer ID signing and notarization for public ZIP builds.
