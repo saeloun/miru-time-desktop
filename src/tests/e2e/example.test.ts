@@ -139,7 +139,7 @@ function seedSignedInAccount(
         baseUrl: overrides.baseUrl ?? "http://127.0.0.1:65535",
         currentWorkspaceId: overrides.currentWorkspaceId ?? 1,
         user: {
-          avatar_url: "/rails/active_storage/avatars/mira.png",
+          avatar_url: "",
           email: "employee@miru.test",
           first_name: "Mira",
           id: 1,
@@ -253,6 +253,16 @@ async function createFakeMiruApiServer({
       pathname: url.pathname,
       query: url.search,
     });
+
+    if (request.method === "GET" && url.pathname.startsWith("/avatars/")) {
+      response.writeHead(200, {
+        "Content-Type": "image/svg+xml",
+      });
+      response.end(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="12" fill="#5b34ea"/><text x="24" y="30" text-anchor="middle" font-family="Arial" font-size="15" font-weight="700" fill="white">ME</text></svg>'
+      );
+      return;
+    }
 
     const json = (status: number, payload: unknown) => {
       response.writeHead(status, {
@@ -773,10 +783,9 @@ test("closes account menu and logs out from signed-in state", async () => {
   });
 
   await expect(accountButton).toBeVisible();
-  await expect(accountButton.locator("img")).toHaveAttribute(
-    "src",
-    "http://127.0.0.1:65535/rails/active_storage/avatars/mira.png"
-  );
+  await expect(
+    accountButton.getByRole("img", { name: "Mira Employee" })
+  ).toBeVisible();
   await accountButton.click();
   await expect(accountMenu).toBeVisible();
 
@@ -939,8 +948,10 @@ test("loads Miru API projects and entries for a signed-in employee", async () =>
 
     await expect(page.getByLabel("Account menu")).toBeVisible();
     await expect(
-      page.getByLabel("Account menu").locator("img")
-    ).toHaveAttribute("src", `${server.baseUrl}/avatars/live-profile.png`);
+      page
+        .getByLabel("Account menu")
+        .getByRole("img", { name: "Mira Employee" })
+    ).toBeVisible();
     await expect(page.getByText("Desktop QA", { exact: true })).toBeVisible();
     await expect(page.getByText("Loaded from Miru API")).toBeVisible();
     await expect(page.getByText("1 entries · 1.25h tracked")).toBeVisible();

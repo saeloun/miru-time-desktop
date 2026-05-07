@@ -159,6 +159,18 @@
     animation: miru-idle-orbit 1.8s ease-in-out infinite;
   }
 
+  .motion-idle-ring {
+    animation: miru-idle-ring 1.9s ease-out infinite;
+  }
+
+  .motion-idle-ring-delay {
+    animation-delay: 420ms;
+  }
+
+  .motion-idle-action {
+    animation: miru-idle-action-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   .status-dot-running {
     animation: miru-status-pulse 1.45s ease-in-out infinite;
   }
@@ -236,6 +248,29 @@
   }
 }
 
+@keyframes miru-idle-ring {
+  0% {
+    opacity: 0.82;
+    transform: scale(0.86);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.32);
+  }
+}
+
+@keyframes miru-idle-action-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes miru-status-pulse {
   0%,
   100% {
@@ -263,6 +298,8 @@
   .motion-popover,
   .motion-dialog,
   .motion-idle-orbit,
+  .motion-idle-ring,
+  .motion-idle-action,
   .status-dot-running,
   .status-dot-idle {
     animation: none;

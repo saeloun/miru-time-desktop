@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CalendarPlus,
   Check,
+  ChevronRight,
   Clock3,
   Cloud,
   CloudOff,
@@ -1259,7 +1260,7 @@ function HomePage() {
             timerStatusLabel={timerStatusLabel}
           />
 
-          <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+          <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto p-2.5">
             <TimeSummaryStrip
               onShowAll={showAllEntries}
               onShowToday={showTodayEntries}
@@ -1420,30 +1421,17 @@ function TimerHeroPanel({
     >
       <div className="grid grid-cols-[minmax(0,1fr)_5.75rem] items-center gap-3">
         <div className="min-w-0">
-          <div
-            className={cn(
-              "mb-1 flex items-center gap-2 font-medium text-xs",
-              isRunning ? "text-white/75" : "text-foreground/70"
-            )}
-          >
+          <div className="mb-1 flex items-center gap-2 font-medium text-foreground/70 text-xs">
             <span className={cn("size-2.5 rounded-full", timerDotClass)} />
             <span>{timerStatusLabel}</span>
           </div>
           <p
-            className={cn(
-              "max-w-full overflow-hidden whitespace-nowrap font-mono font-semibold text-[2.65rem] tabular-nums leading-none tracking-normal",
-              isRunning ? "text-white" : "text-foreground"
-            )}
+            className="max-w-full overflow-hidden whitespace-nowrap font-mono font-semibold text-[2.65rem] text-foreground tabular-nums leading-none tracking-normal"
             data-testid="timer-display"
           >
             {formatDuration(timer.elapsedSeconds)}
           </p>
-          <p
-            className={cn(
-              "mt-0.5 truncate font-medium text-xs",
-              isRunning ? "text-white/70" : "text-foreground/65"
-            )}
-          >
+          <p className="mt-0.5 truncate font-medium text-foreground/65 text-xs">
             {selectedClient?.name ?? "Choose a project"} /{" "}
             {selectedProject?.name ?? "No project"} /{" "}
             {getTaskDisplayName(selectedTask, t)}
@@ -1455,7 +1443,7 @@ function TimerHeroPanel({
           className={cn(
             "grid w-[5.75rem] shrink-0 grid-cols-2 gap-1.5 rounded-xl border p-1.5 shadow-sm",
             isRunning
-              ? "border-white/15 bg-white/10"
+              ? "border-primary/20 bg-white/70"
               : "border-border bg-white/80"
           )}
           data-testid="timer-controls"
@@ -1466,7 +1454,7 @@ function TimerHeroPanel({
             className={cn(
               "interactive-lift icon-motion grid size-9 place-items-center rounded-lg border transition",
               isRunning
-                ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                ? "border-primary/15 bg-white text-foreground hover:bg-primary/5"
                 : "border-border bg-white text-foreground hover:bg-muted",
               !canSave && "opacity-45"
             )}
@@ -1482,7 +1470,7 @@ function TimerHeroPanel({
             className={cn(
               "interactive-lift icon-motion grid size-9 place-items-center rounded-full shadow-md transition",
               timer.running
-                ? "bg-white text-[#261257] hover:bg-white/90"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
             onClick={onToggleTimer}
@@ -1500,7 +1488,7 @@ function TimerHeroPanel({
             className={cn(
               "interactive-lift icon-motion grid size-9 place-items-center rounded-lg border transition",
               isRunning
-                ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                ? "border-primary/15 bg-white text-foreground hover:bg-primary/5"
                 : "border-border bg-white text-foreground hover:bg-muted"
             )}
             onClick={onResetTimer}
@@ -1514,7 +1502,7 @@ function TimerHeroPanel({
             className={cn(
               "interactive-lift icon-motion grid size-9 place-items-center rounded-lg border transition",
               isRunning
-                ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                ? "border-primary/15 bg-white text-foreground hover:bg-primary/5"
                 : "border-border bg-white text-foreground hover:bg-muted",
               !canStartNew && "opacity-45"
             )}
@@ -1534,7 +1522,7 @@ function TimerHeroPanel({
           className={cn(
             "mt-3 grid gap-1.5 rounded-lg border p-2",
             isRunning
-              ? "border-white/15 bg-white/10"
+              ? "border-primary/15 bg-white/70"
               : "border-border bg-white/70"
           )}
         >
@@ -1544,20 +1532,10 @@ function TimerHeroPanel({
               key={slot.id}
             >
               <div className="min-w-0">
-                <p
-                  className={cn(
-                    "truncate font-semibold text-xs",
-                    isRunning ? "text-white" : "text-foreground"
-                  )}
-                >
+                <p className="truncate font-semibold text-foreground text-xs">
                   {slot.context.projectName}
                 </p>
-                <p
-                  className={cn(
-                    "truncate font-mono text-[11px] tabular-nums",
-                    isRunning ? "text-white/65" : "text-foreground/55"
-                  )}
-                >
+                <p className="truncate font-mono text-[11px] text-foreground/55 tabular-nums">
                   {formatDuration(slot.elapsedSeconds)} ·{" "}
                   {slot.context.notes || slot.context.taskName}
                 </p>
@@ -1567,7 +1545,7 @@ function TimerHeroPanel({
                 className={cn(
                   "interactive-lift icon-motion grid size-8 place-items-center rounded-md border transition",
                   isRunning
-                    ? "border-white/15 bg-white/10 text-white"
+                    ? "border-primary/15 bg-white text-foreground"
                     : "border-border bg-background text-foreground"
                 )}
                 onClick={() => onResumeTimerSlot(slot.id)}
@@ -1581,7 +1559,7 @@ function TimerHeroPanel({
                 className={cn(
                   "interactive-lift icon-motion grid size-8 place-items-center rounded-md border transition",
                   isRunning
-                    ? "border-white/15 bg-white/10 text-white"
+                    ? "border-primary/15 bg-white text-foreground"
                     : "border-border bg-background text-foreground"
                 )}
                 onClick={() => onDeleteTimerSlot(slot.id)}
@@ -1620,9 +1598,9 @@ function WorkDetailsPanel({
   timer: TimerState;
 }) {
   return (
-    <section className="rounded-lg border bg-background p-3 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+    <section className="rounded-lg border bg-background p-2.5 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
           <FolderKanban className="size-4" />
         </span>
         <div>
@@ -1634,7 +1612,7 @@ function WorkDetailsPanel({
         </div>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         <FieldLabel icon={<FolderKanban />} label={t("field.project")}>
           <Select onChange={onProjectChange} value={timer.projectId}>
             {projects.map((project) => (
@@ -1658,7 +1636,7 @@ function WorkDetailsPanel({
 
         <FieldLabel icon={<FileText />} label={t("field.notes")}>
           <textarea
-            className="min-h-18 resize-none rounded-md border bg-background px-3 py-2 font-medium text-foreground text-sm outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-primary/30"
+            className="min-h-14 resize-none rounded-md border bg-background px-3 py-2 font-medium text-foreground text-sm outline-none placeholder:text-foreground/50 focus:ring-2 focus:ring-primary/30"
             onChange={(event) => onNotesChange(event.target.value)}
             placeholder="What are you working on?"
             value={timer.notes}
@@ -1734,8 +1712,8 @@ function EntriesPanel({
         });
 
   return (
-    <section className="mt-3 min-h-0 overflow-hidden rounded-lg border bg-background shadow-sm">
-      <div className="grid gap-2 border-b p-3">
+    <section className="mt-2 min-h-0 overflow-hidden rounded-lg border bg-background shadow-sm">
+      <div className="grid gap-2 border-b p-2.5">
         <div className="grid grid-cols-[1fr_auto] items-center gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-sm">
@@ -1752,7 +1730,7 @@ function EntriesPanel({
             </p>
           </div>
           <Button
-            className="interactive-lift"
+            className="interactive-lift h-8 px-2.5"
             onClick={() => onNewEntry(selectedDate)}
             type="button"
           >
@@ -1765,7 +1743,7 @@ function EntriesPanel({
             {(["day", "week", "history"] as const).map((mode) => (
               <button
                 className={cn(
-                  "h-8 rounded-sm px-3 font-medium text-xs transition",
+                  "h-7 rounded-sm px-2 font-medium text-xs transition",
                   viewMode === mode
                     ? "bg-background text-foreground shadow-sm"
                     : "text-foreground/60 hover:text-foreground"
@@ -1779,7 +1757,7 @@ function EntriesPanel({
             ))}
           </div>
           <input
-            className="h-9 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30"
+            className="h-8 rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30"
             onChange={(event) => {
               onDateChange(event.target.value);
               onViewModeChange("day");
@@ -1791,7 +1769,7 @@ function EntriesPanel({
       </div>
 
       {visibleEntries.length > 0 ? (
-        <div className="max-h-[18rem] divide-y overflow-y-auto">
+        <div className="max-h-[19rem] divide-y overflow-y-auto">
           {visibleEntries.map((entry) => (
             <TimeEntryRow
               clients={clients}
@@ -2195,44 +2173,56 @@ function IdlePrompt({
   const actions = [
     {
       action: "remove-continue" as const,
-      className: "bg-emerald-500 text-white shadow-emerald-500/25",
+      className:
+        "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100",
+      iconClassName: "bg-emerald-500 text-white",
       icon: Check,
       label: t("idle.trim"),
     },
     {
       action: "remove-start-new" as const,
-      className: "bg-primary text-primary-foreground shadow-primary/25",
+      className:
+        "border-primary/20 bg-primary/10 text-primary hover:border-primary/35 hover:bg-primary/15",
+      iconClassName: "bg-primary text-primary-foreground",
       icon: RefreshCw,
       label: t("idle.restart"),
     },
     {
       action: "ignore-continue" as const,
-      className: "bg-foreground text-background shadow-foreground/15",
+      className:
+        "border-border bg-background text-foreground hover:border-foreground/20 hover:bg-muted",
+      iconClassName: "bg-foreground text-background",
       icon: Play,
       label: t("idle.keep"),
     },
   ];
 
   return (
-    <div className="absolute inset-0 z-50 grid place-items-center bg-white/55 p-5 backdrop-blur-[2px]">
+    <div className="absolute inset-0 z-50 grid place-items-center bg-[#f7f8fb]/80 p-5 backdrop-blur-md">
       <section
         aria-label={t("idle.aria")}
-        className="motion-dialog w-full max-w-[19rem] rounded-xl border bg-white p-4 text-center shadow-2xl ring-1 ring-black/5"
+        className="motion-dialog w-full max-w-[21rem] overflow-hidden rounded-xl border bg-background text-left shadow-2xl ring-1 ring-black/5"
         role="dialog"
       >
-        <div className="mx-auto grid size-16 place-items-center rounded-full bg-amber-50 text-amber-600">
-          <span className="motion-idle-orbit grid size-11 place-items-center rounded-full bg-amber-100">
-            <TimerReset className="size-5" />
-          </span>
+        <div className="grid grid-cols-[3.5rem_1fr] items-center gap-3 border-b bg-[#fbfaf7] p-4">
+          <div className="relative grid size-14 place-items-center rounded-full bg-amber-50 text-amber-600">
+            <span className="motion-idle-ring absolute inset-0 rounded-full border border-amber-200" />
+            <span className="motion-idle-ring motion-idle-ring-delay absolute inset-1 rounded-full border border-amber-200" />
+            <span className="motion-idle-orbit relative grid size-10 place-items-center rounded-full bg-amber-100 shadow-inner">
+              <TimerReset className="size-5" />
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.16em]">
+              {t("idle.title")}
+            </p>
+            <p className="mt-0.5 font-mono font-semibold text-4xl tabular-nums leading-none">
+              {formatCompactDuration(durationMs)}
+            </p>
+          </div>
         </div>
-        <p className="mt-3 font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
-          {t("idle.title")}
-        </p>
-        <p className="mt-1 font-mono font-semibold text-5xl tabular-nums">
-          {formatCompactDuration(durationMs)}
-        </p>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="grid gap-2 p-3">
           {actions.map((item) => {
             const Icon = item.icon;
 
@@ -2240,7 +2230,7 @@ function IdlePrompt({
               <button
                 aria-label={item.label}
                 className={cn(
-                  "interactive-lift icon-motion grid aspect-square place-items-center rounded-xl shadow-lg transition",
+                  "motion-idle-action interactive-lift icon-motion grid min-h-12 grid-cols-[2.25rem_1fr_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left shadow-sm transition",
                   item.className
                 )}
                 key={item.action}
@@ -2248,7 +2238,18 @@ function IdlePrompt({
                 title={item.label}
                 type="button"
               >
-                <Icon className="size-5" />
+                <span
+                  className={cn(
+                    "grid size-8 place-items-center rounded-md shadow-sm",
+                    item.iconClassName
+                  )}
+                >
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0 truncate font-semibold text-sm">
+                  {item.label}
+                </span>
+                <ChevronRight className="size-4 opacity-45" />
               </button>
             );
           })}
@@ -2298,7 +2299,7 @@ function TimeSummaryStrip({
   ];
 
   return (
-    <section className="mb-3 grid grid-cols-3 gap-2">
+    <section className="mb-2 grid grid-cols-3 gap-2">
       {items.map((item) => {
         const Icon = item.icon;
 
@@ -2306,7 +2307,7 @@ function TimeSummaryStrip({
           <button
             aria-pressed={item.active}
             className={cn(
-              "motion-fade-up interactive-lift min-w-0 rounded-lg border px-3 py-2 text-left shadow-sm transition",
+              "motion-fade-up interactive-lift min-w-0 rounded-lg border px-2.5 py-1.5 text-left shadow-sm transition",
               item.active
                 ? "border-primary/30 bg-primary/10"
                 : "bg-background hover:border-primary/20 hover:bg-primary/5"
@@ -2318,15 +2319,15 @@ function TimeSummaryStrip({
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <span
                 className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-md text-primary",
+                  "flex size-5 shrink-0 items-center justify-center rounded-md text-primary",
                   item.active ? "bg-background" : "bg-primary/10"
                 )}
               >
-                <Icon className="size-3.5" />
+                <Icon className="size-3" />
               </span>
               <p className="truncate text-[11px]">{item.label}</p>
             </div>
-            <p className="mt-1 truncate font-mono font-semibold text-sm tabular-nums">
+            <p className="mt-0.5 truncate font-mono font-semibold text-sm tabular-nums">
               {item.value}
             </p>
           </button>
@@ -2829,27 +2830,36 @@ function AccountAvatar({
     md: 40,
     sm: 32,
   }[size];
+  const initials = getInitials(name || email || "M");
 
   if (avatarUrl) {
     return (
-      <img
-        alt=""
-        className={cn("shrink-0 object-cover shadow-sm", sizeClass)}
-        height={pixelSize}
-        src={avatarUrl}
-        width={pixelSize}
+      <span
+        aria-label={name || email || "Miru user"}
+        className={cn(
+          "block shrink-0 bg-center bg-cover bg-gradient-to-br from-primary to-[#7c5cff] shadow-sm ring-1 ring-white/70",
+          sizeClass
+        )}
+        role="img"
+        style={{
+          backgroundImage: `url("${avatarUrl}"), linear-gradient(135deg, var(--primary), #7c5cff)`,
+          height: pixelSize,
+          width: pixelSize,
+        }}
       />
     );
   }
 
   return (
     <span
+      aria-label={name || email || "Miru user"}
       className={cn(
-        "grid shrink-0 place-items-center bg-primary font-semibold text-primary-foreground shadow-sm",
+        "grid shrink-0 place-items-center bg-gradient-to-br from-primary to-[#7c5cff] font-semibold text-primary-foreground shadow-sm ring-1 ring-white/70",
         sizeClass
       )}
+      role="img"
     >
-      {getInitials(name || email || "M")}
+      {initials}
     </span>
   );
 }
@@ -2987,7 +2997,7 @@ function getTimerPanelClass(timer: TimerState) {
   }
 
   if (timer.running) {
-    return "border-[#261257] bg-[#211044] text-white";
+    return "border-primary/25 bg-gradient-to-br from-[#f3efff] via-[#eee9ff] to-[#e7dfff] text-foreground";
   }
 
   if (timer.elapsedSeconds > 0) {
