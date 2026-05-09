@@ -67,10 +67,10 @@ rtk mise exec -- bun run test:e2e
 For a release, additionally build all ZIPs and verify GitHub download URLs resolve to `302 -> 200`:
 
 ```bash
-rtk mise exec -- bun run make:mac
-rtk mise exec -- bun run make:linux
-rtk mise exec -- bun run make:windows
+rtk mise exec -- bun run release:build
 ```
+
+Public macOS release assets must use `make:mac:release` or `release:build`, never the unsigned local `make:mac` path. Verify both macOS app bundles with `release:verify:mac` before publishing.
 
 Install the macOS build locally when the user asks to test it:
 
@@ -93,6 +93,7 @@ open "/Applications/Miru Time Tracking.app"
 - Push the current checked-out branch unless explicitly asked otherwise.
 - Release assets must use URL-safe filenames:
   - `Miru.Time.Tracking-darwin-arm64-<version>.zip`
+  - `Miru.Time.Tracking-darwin-x64-<version>.zip`
   - `Miru.Time.Tracking-linux-x64-<version>.zip`
   - `Miru.Time.Tracking-win32-x64-<version>.zip`
 - After creating or editing a release, verify:

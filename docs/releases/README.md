@@ -14,5 +14,6 @@ Before publishing a release:
 
 1. Update `CHANGELOG.md`.
 2. Add or update the versioned release notes file.
-3. Verify release download links point to `github.com/saeloun/miru-time-desktop`.
-4. Use the versioned notes file with `gh release create --notes-file`.
+3. Build with `rtk mise exec -- bun run release:build` so macOS assets are signed, notarized, stapled, and verified before publishing.
+4. Verify release download links point to `github.com/saeloun/miru-time-desktop`.
+5. Use the versioned notes file with `gh release create --notes-file`.

@@ -13,9 +13,7 @@ rtk mise exec -- bun run check
 rtk mise exec -- bun run test
 rtk mise exec -- bun run package
 rtk mise exec -- bun run test:e2e
-rtk mise exec -- bun run make:mac:release
-rtk mise exec -- bun run make:linux
-rtk mise exec -- bun run make:windows
+rtk mise exec -- bun run release:build
 rtk mise exec -- bun audit
 ```
 
@@ -55,6 +53,8 @@ rtk mise exec -- bun run make:mac:release
 Verify each packaged app before publishing:
 
 ```bash
+rtk mise exec -- bun run release:verify:mac
+
 codesign --verify --deep --strict --verbose=2 "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
 spctl --assess --type execute --verbose=4 "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
 xcrun stapler validate "out/Miru Time Tracking-darwin-arm64/Miru Time Tracking.app"
@@ -93,9 +93,9 @@ Keep release copy in `CHANGELOG.md` and `docs/releases/<version>.md`. Use the ve
 rtk mise exec -- bun run publish
 ```
 
-The `publish` script also enables `MIRU_MAC_RELEASE=true`, so it requires the same signing and notarization setup as `make:mac:release`.
+The `publish` script also enables `MIRU_MAC_RELEASE=true`, so it requires the same signing and notarization setup as `make:mac:release` and runs `release:verify:mac` after publishing the draft artifacts.
 
-Use `bun run make:mac:release`, `bun run make:linux`, and `bun run make:windows` first when you only want local release artifacts. `make:mac:release` builds signed and notarized Apple Silicon and Intel ZIPs. The portable ZIPs are generated under `out/make/zip/`.
+Use `bun run release:build` first when you only want local release artifacts. It runs `make:mac:release`, verifies both macOS app bundles with `release:verify:mac`, then builds Linux and Windows ZIPs. The portable ZIPs are generated under `out/make/zip/`.
 
 Manual release fallback:
 

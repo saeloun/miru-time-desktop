@@ -61,9 +61,7 @@ out/make/zip/darwin/arm64/
 Portable cross-platform ZIP builds:
 
 ```bash
-rtk mise exec -- bun run make:mac:release
-rtk mise exec -- bun run make:linux
-rtk mise exec -- bun run make:windows
+rtk mise exec -- bun run release:build
 ```
 
 Those commands generate:
@@ -74,7 +72,7 @@ out/make/zip/linux/x64/
 out/make/zip/win32/x64/
 ```
 
-Use `make:mac:release` for public macOS ZIPs. It requires a local `Developer ID Application` certificate and Apple notarization credentials, then signs and notarizes the app before ZIP packaging.
+Use `release:build` or `make:mac:release` for public macOS ZIPs. They require a local `Developer ID Application` certificate and Apple notarization credentials. `release:build` also runs `release:verify:mac`, which fails unless both macOS app bundles pass codesign, Gatekeeper, and stapler validation.
 
 ## E2E Verification
 
